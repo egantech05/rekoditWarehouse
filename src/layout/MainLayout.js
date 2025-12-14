@@ -1,6 +1,8 @@
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, StyleSheet, Pressable } from "react-native";
 import { useState } from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import StackNavigator from "../components/navigation/StackNavigator";
 
 import { mainStyles } from "../assets/styles";
 import Header from "./Header";
@@ -22,18 +24,21 @@ export default function MainLayout() {
 
     return (
         <SafeAreaView style={mainStyles.container} edges={["top", "left", "right"]}>
-            <Header onMenuPress={handleMenuPress} />
-            <View style={mainLayoutStyles.body}>
-                {panel && (
-                    <Pressable style={mainLayoutStyles.overlay} onPress={closePanels}>
-                        <Pressable onPress={() => { }} style={mainLayoutStyles.panelInner}>
-                            {panel === "nav" && <NavBar onWarehousePress={handleWarehousePress} />}
-                            {panel === "warehouse" && <WarehouseSelection />}
+                <Header onMenuPress={handleMenuPress} />
+                <View style={mainLayoutStyles.body}>
+                    {panel && (
+                        <Pressable style={mainLayoutStyles.overlay} onPress={closePanels}>
+                            <Pressable onPress={() => { }} style={mainLayoutStyles.panelInner}>
+                                {panel === "nav" && <NavBar onWarehousePress={handleWarehousePress} onClose={closePanels}/>}
+                                {panel === "warehouse" && <WarehouseSelection />}
+                            </Pressable>
                         </Pressable>
-                    </Pressable>
-                )}
-                <View style={mainLayoutStyles.mainContent} />
-            </View>
+                    )}
+                    <View style={mainLayoutStyles.mainContent}>
+                        <StackNavigator />
+                    </View>
+                </View>
+   
         </SafeAreaView>
     );
 }

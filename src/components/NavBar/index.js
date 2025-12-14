@@ -1,14 +1,19 @@
+import { useNavigation } from "@react-navigation/native";
+
 import { colors } from "../../assets/styles"
 import MenuBar from "../MenuBar"
 
-const navItems = (onWarehousePress, lastBarColor = "#B63D3F") => [
+
+export default function NavBar({ onWarehousePress = () => {}, onClose = () => {} }) {
+    
+  const navigation = useNavigation();
+  const closeThen = (fn) => () => { onClose(); fn?.(); };
+  const navItems = [
     { key: "warehouse", label: "Warehouse", icon: { name: "sync-outline", color: colors.brandHighlight }, onPress: onWarehousePress, textStyle: { color: colors.brandHighlight } },
-    { key: "template", label: "Inventory Template", icon: { name: "document-text-outline", color: "white" } },
-    { key: "team", label: "Team", icon: { name: "people-outline", color: "white" } },
-    { key: "logout", label: "Logout", icon: { name: "log-out-outline", color: "white" }, backgroundColor: lastBarColor },
-];
-
-export default function NavBar({ onWarehousePress = () => { }, lastBarColor }) {
-    return <MenuBar items={navItems(onWarehousePress, lastBarColor)} />;
-}
-
+    { key: "home", label: "Home", icon: { name: "home-outline", color: "white" }, onPress:closeThen(() => navigation.navigate("Home")) },
+    { key: "template", label: "Inventory Template", icon: { name: "document-text-outline", color: "white" }, onPress:closeThen(() => navigation.navigate("Templates")) },
+    { key: "team", label: "Team", icon: { name: "people-outline", color: "white" }, onPress: closeThen(() => navigation.navigate("Team"))},
+    { key: "logout", label: "Logout", icon: { name: "log-out-outline", color: "white" }, backgroundColor: "#B63D3F" },
+  ];
+  return <MenuBar items={navItems} />;
+};

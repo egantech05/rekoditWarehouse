@@ -1,10 +1,14 @@
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import MainLayout from './src/layout/MainLayout';
+import { NavigationContainer } from "@react-navigation/native";
+import MainLayout from "./src/layout/MainLayout";
+
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <MainLayout />
+      <NavigationContainer>
+        <MainLayout />
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }
