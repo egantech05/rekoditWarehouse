@@ -1,15 +1,27 @@
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, StyleSheet, Pressable } from "react-native";
 import { useState } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { useNavigationState } from "@react-navigation/native";
 import StackNavigator from "../components/navigation/StackNavigator";
 
 import { mainStyles } from "../assets/styles";
 import Header from "./Header";
 import NavBar from "../components/NavBar";
 import WarehouseSelection from "../components/WarehouseSelection";
+import StatusBar from "../components/StatusBar"
+import PageTitle from "../components/PageTitle";
+import SearchBar from "../components/SearchBar";
 
-export default function MainLayout() {
+export default function MainLayout({ routeName }) {
+
+    const pageTitleByRoute = {
+    Home: "Inventory",
+    Templates: "Inventory Template",
+    Team: "Team",
+    };
+
+    const pageTitle = pageTitleByRoute[routeName] ?? "";
+
     const [panel, setPanel] = useState(null);
 
     const handleMenuPress = () => {
@@ -25,6 +37,9 @@ export default function MainLayout() {
     return (
         <SafeAreaView style={mainStyles.container} edges={["top", "left", "right"]}>
                 <Header onMenuPress={handleMenuPress} />
+                <StatusBar />
+                <PageTitle title={pageTitle}/>
+                <SearchBar />
                 <View style={mainLayoutStyles.body}>
                     {panel && (
                         <Pressable style={mainLayoutStyles.overlay} onPress={closePanels}>
@@ -38,6 +53,7 @@ export default function MainLayout() {
                         <StackNavigator />
                     </View>
                 </View>
+                
    
         </SafeAreaView>
     );

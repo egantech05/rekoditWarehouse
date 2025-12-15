@@ -4,6 +4,7 @@ export const colors = {
     boldColor: "#1C1B1B",
     secondary: "#333333",
     tertiary: "#3A3939",
+    bright: "#D9D9D9",
 };
 
 export const mainStyles = {
