@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, ScrollView } from "react-native";
-import { colors } from "../../assets/styles";
+
+import { HomeStyles } from "./styles";
 
 import ItemDisplayCard from "./components/ItemDisplayCard"
 
@@ -45,16 +46,3 @@ export default function Home() {
   );
 }
 
-const HomeStyles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: colors.body,
-    padding: 16,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    justifyContent: "center",
-    alignItems: "flex-start",
-   },
-
-});
