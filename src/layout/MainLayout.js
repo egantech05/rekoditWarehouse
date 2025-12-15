@@ -11,6 +11,7 @@ import WarehouseSelection from "../components/WarehouseSelection";
 import StatusBar from "../components/StatusBar"
 import PageTitle from "../components/PageTitle";
 import SearchBar from "../components/SearchBar";
+import AddCard from "../components/AddCard";
 
 export default function MainLayout({ routeName }) {
 
@@ -37,9 +38,7 @@ export default function MainLayout({ routeName }) {
     return (
         <SafeAreaView style={mainStyles.container} edges={["top", "left", "right"]}>
                 <Header onMenuPress={handleMenuPress} />
-                <StatusBar />
-                <PageTitle title={pageTitle}/>
-                <SearchBar />
+
                 <View style={mainLayoutStyles.body}>
                     {panel && (
                         <Pressable style={mainLayoutStyles.overlay} onPress={closePanels}>
@@ -49,6 +48,10 @@ export default function MainLayout({ routeName }) {
                             </Pressable>
                         </Pressable>
                     )}
+                <StatusBar />
+                <PageTitle title={pageTitle}/>
+                <SearchBar />
+                <AddCard />
                     <View style={mainLayoutStyles.mainContent}>
                         <StackNavigator />
                     </View>
@@ -63,6 +66,7 @@ const mainLayoutStyles = StyleSheet.create({
     mainContent: {
         flex: 1,
         flexDirection: "row",
+
     },
     body: {
         flex: 1,
