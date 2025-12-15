@@ -48,11 +48,11 @@ export default function MainLayout({ routeName }) {
                             </Pressable>
                         </Pressable>
                     )}
-                <StatusBar />
-                <PageTitle title={pageTitle}/>
-                <SearchBar />
-                <AddCard />
-                    <View style={mainLayoutStyles.mainContent}>
+                    <StatusBar />
+                    <PageTitle title={pageTitle}/>
+                    <SearchBar />
+                    <AddCard />
+                    <View style={mainLayoutStyles.mainContent} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
                         <StackNavigator />
                     </View>
                 </View>
@@ -65,8 +65,6 @@ export default function MainLayout({ routeName }) {
 const mainLayoutStyles = StyleSheet.create({
     mainContent: {
         flex: 1,
-        flexDirection: "row",
-
     },
     body: {
         flex: 1,

@@ -16,7 +16,8 @@ export const AddCardStyles= StyleSheet.create({
     container:{
         flexDirection:"row",
         justifyContent:"center",
-        margin:16,
+        marginTop:16,
+        marginHorizontal:16,
         padding:8,
         backgroundColor: colors.boldColor,
         borderRadius: 8,

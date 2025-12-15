@@ -1,17 +1,60 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { colors } from "../../assets/styles";
+
+import ItemDisplayCard from "./components/ItemDisplayCard"
 
 export default function Home() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Home</Text>
-      <Text style={styles.subtitle}>Use the NavBar to jump screens.</Text>
-    </View>
+    <ScrollView
+      contentContainerStyle={HomeStyles.container}
+      showsVerticalScrollIndicator={false}
+    >
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+                <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+        <ItemDisplayCard/>
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.body },
-  title: { color: colors.brandHighlight, fontSize: 22, fontWeight: "bold", marginBottom: 8 },
-  subtitle: { color: "white" },
+const HomeStyles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    backgroundColor: colors.body,
+    padding: 16,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "center",
+    alignItems: "flex-start",
+   },
+
 });
