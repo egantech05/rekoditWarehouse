@@ -39,7 +39,7 @@ export const TemplateDisplayCardStyles= StyleSheet.create({
 
     pillText:{
         color: colors.secondary,
-        fontSize:12,
+        fontSize:11,
         fontWeight:"bold",
     },
 

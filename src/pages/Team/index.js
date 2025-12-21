@@ -1,17 +1,31 @@
-import { View, Text, StyleSheet } from "react-native";
-import { colors } from "../../assets/styles";
+import { View, Text, ScrollView } from "react-native";
+
+import { TeamStyles } from "./styles";
+import TeamMember from "./components/TeamMember"
+import EditTeamMember from "./components/EditTeamMember"
+import SearchBar from "../../components/SearchBar"
 
 export default function Team() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Team</Text>
-      <Text style={styles.subtitle}>Use the NavBar to jump screens.</Text>
+    <View style={TeamStyles.container}>
+      <SearchBar />
+      <ScrollView style={TeamStyles.scroll}
+            showsVerticalScrollIndicator={false}>
+        <TeamMember/>
+          <EditTeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+        <TeamMember/>
+      </ScrollView>
     </View>
   );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.body },
-  title: { color: colors.brandHighlight, fontSize: 22, fontWeight: "bold", marginBottom: 8 },
-  subtitle: { color: "white" },
-});
+};

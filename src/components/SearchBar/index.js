@@ -1,4 +1,4 @@
-import {View,Text,StyleSheet} from "react-native";
+import {View,TextInput,StyleSheet, Pressable} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import {colors} from "../../assets/styles"
@@ -9,8 +9,16 @@ export default function SearchBar(){
 
     return(
         <View style={SearchBarStyles.container}>
-            <View style={SearchBarStyles.input}></View>
-             <Ionicons name={"search-outline"} size={24} color={colors.boldColor} />
+            <TextInput
+                style={SearchBarStyles.input}
+                placeholder="Search"
+                placeholderTextColor={colors.secondary}
+                underlineColorAndroid="transparent"
+            
+            />
+             <Pressable>
+                 <Ionicons name={"search-outline"} size={24} color={colors.boldColor} />
+             </Pressable>
         </View>
     );
 
@@ -30,8 +38,10 @@ export const SearchBarStyles = StyleSheet.create({
     },
 
     input:{
-        fontSize: 16,
+        flex:1,
+        fontSize: 13,
         color:colors.boldColor,
+        outlineStyle: 'none',
     },
 
 });

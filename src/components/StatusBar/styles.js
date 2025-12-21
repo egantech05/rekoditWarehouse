@@ -22,7 +22,7 @@ export const statusBarStyles = StyleSheet.create({
 
     warehouseName:{
         color: "white",
-        fontSize:16,
+        fontSize:13,
         margin:8,
         fontWeight:"bold",
     },
@@ -35,7 +35,7 @@ export const statusBarStyles = StyleSheet.create({
     userName:{
         color:"white",
         margin:8,
-        fontSize:16,
+        fontSize:13,
     },
 
 });

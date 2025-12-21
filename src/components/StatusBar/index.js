@@ -9,7 +9,7 @@ export default function StatusBar(){
     <View style={statusBarStyles.container}>
         <View style={statusBarStyles.warehouse}>
             
-            <Ionicons name= "folder-outline" size={24} color="white" />
+            <Ionicons name= "folder-outline" size={16} color="white" />
             <View ><Text style={statusBarStyles.warehouseName}>Warehouse 1</Text></View>
         </View>
         <View style={statusBarStyles.user}>

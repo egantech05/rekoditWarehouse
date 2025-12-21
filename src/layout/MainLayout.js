@@ -10,8 +10,8 @@ import NavBar from "../components/NavBar";
 import WarehouseSelection from "../components/WarehouseSelection";
 import StatusBar from "../components/StatusBar"
 import PageTitle from "../components/PageTitle";
-import SearchBar from "../components/SearchBar";
-import AddCard from "../components/AddCard";
+import { colors } from "../assets/styles";
+
 
 export default function MainLayout({ routeName }) {
 
@@ -50,8 +50,6 @@ export default function MainLayout({ routeName }) {
                     )}
                     <StatusBar />
                     <PageTitle title={pageTitle}/>
-                    <SearchBar />
-                    <AddCard />
                     <View style={mainLayoutStyles.mainContent} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
                         <StackNavigator />
                     </View>
@@ -65,6 +63,7 @@ export default function MainLayout({ routeName }) {
 const mainLayoutStyles = StyleSheet.create({
     mainContent: {
         flex: 1,
+        
     },
     body: {
         flex: 1,

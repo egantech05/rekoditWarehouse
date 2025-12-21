@@ -3,10 +3,10 @@ import { Ionicons } from "@expo/vector-icons";
 
 import {colors} from "../../assets/styles"
 
-export default function AddCard(){
+export default function AddCard({onPress}){
 
     return(
-        <Pressable style={AddCardStyles.container}>
+        <Pressable style={AddCardStyles.container} onPress={onPress}>
             <Ionicons name={"add-circle-outline"} size={32} color={colors.brandHighlight} />
         </Pressable>
     );

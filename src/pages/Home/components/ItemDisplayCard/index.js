@@ -2,9 +2,9 @@ import { View, Text, Pressable } from "react-native";
 
 import { ItemDisplayCardStyles } from "./styles";
 
-export default function ItemDisplayCard (){
+export default function ItemDisplayCard ({ onPress }){
     return(
-        <Pressable style={ItemDisplayCardStyles.container}>
+        <Pressable style={ItemDisplayCardStyles.container} onPress={onPress}>
                 <View style={ItemDisplayCardStyles.topSection}>
                     <View style={ItemDisplayCardStyles.quantityPill}>
                         <Text style={ItemDisplayCardStyles.quantityPillText}>1000</Text></View>

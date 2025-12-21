@@ -29,14 +29,14 @@ export const ItemDisplayCardStyles= StyleSheet.create({
         
         justifyContent:"center",
         color: colors.brandHighlight,
-        fontSize: 16,
+        fontSize: 13,
         fontWeight:"bold",
     },
     bottomSection:{
          gap: 8,
     },
     title:{
-        fontSize: 24,
+        fontSize: 16,
         fontWeight: "bold",
         color: colors.secondary,
         
@@ -51,7 +51,7 @@ export const ItemDisplayCardStyles= StyleSheet.create({
 
     pillText:{
         color: colors.secondary,
-        fontSize:12,
+        fontSize:11,
         fontWeight:"bold",
     },
 

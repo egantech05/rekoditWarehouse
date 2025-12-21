@@ -5,6 +5,9 @@ export const colors = {
     secondary: "#333333",
     tertiary: "#3A3939",
     bright: "#D9D9D9",
+    brightOutline: "#9D9D9D",
+    greyText: "#878787",
+    red:"#DD5252",
 };
 
 export const mainStyles = {

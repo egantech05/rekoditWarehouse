@@ -3,8 +3,14 @@ import { colors } from "../../assets/styles";
 
 export const TemplateStyles = StyleSheet.create({
   container: {
-    flexGrow: 1,
+
     backgroundColor: colors.body,
+    flex:1,
+
+   },
+
+   scroll:{
+    flexGrow: 1,
     padding: 16,
     flexDirection: "row",
     flexWrap: "wrap",
