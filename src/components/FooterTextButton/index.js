@@ -2,7 +2,7 @@ import { View, Text, StyleSheet,Pressable } from "react-native";
 
 import {colors} from "../../assets/styles"
 
-export default function FooterButton({text, color, textColor}){
+export default function FooterTextButton({text, color, textColor}){
     return(
         <Pressable style={[FooterBtnStyles.container, color && { backgroundColor: color }]}>
                 <Text style={textColor && { color: textColor }}>{text}</Text>

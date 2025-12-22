@@ -1,17 +1,15 @@
 
-import {ScrollView } from "react-native";
+import {ScrollView } from "react-native"; 
 
-
-import {NewItemStyles} from "./styles";
+import {styles} from "./styles";
 import ViewModal from "../../../../components/ViewModal"
 import FooterTextButton from "../../../../components/FooterTextButton";
 
 import {colors} from "../../../../assets/styles"
-import Dropdown from "../../../../components/DropDown"
 import InputBox from "../../../../components/InputBox"
 
 
-export default function NewItemCard({visible, onClose}){
+export default function NewTemplateCard({visible, onClose}){
 
     const footer = (
         <>
@@ -23,10 +21,9 @@ export default function NewItemCard({visible, onClose}){
 
 
     return(
-        <ViewModal visible={visible} onClose={onClose} title="New Inventory" footer={footer}>
-            <ScrollView style={NewItemStyles.container} showsVerticalScrollIndicator={false}>
-                <Dropdown title="Template" />
-                <InputBox title="Property 1" />
+        <ViewModal visible={visible} onClose={onClose} title="New Template" footer={footer}>
+            <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+                <InputBox title="Name" />
                 <InputBox title="Property 2" />
                 <InputBox title="Property 1" />
                 <InputBox title="Property 2" />

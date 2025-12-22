@@ -27,6 +27,7 @@ export const ViewModalStyles = StyleSheet.create({
         alignItems: "center",
       },
 
+
       headerText:{
         fontSize:16,
         fontWeight:"bold",
@@ -34,9 +35,10 @@ export const ViewModalStyles = StyleSheet.create({
 
       },
 
+
+
       body:{
         flex:1,
-        padding:16,
         
       },
 

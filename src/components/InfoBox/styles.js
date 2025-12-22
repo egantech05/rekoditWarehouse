@@ -1,11 +1,9 @@
 import { StyleSheet } from "react-native";
 import { colors } from "../../assets/styles";
 
-export const InputBoxStyles = StyleSheet.create({
+export const InfoBoxStyles = StyleSheet.create({
     container: {
         backgroundColor: "white",
-        borderWidth: 2,
-        borderColor: colors.brightOutline,
         paddingVertical: 8,
         paddingHorizontal:16,
         borderRadius: 8,
