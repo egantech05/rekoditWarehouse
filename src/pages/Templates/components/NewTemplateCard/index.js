@@ -7,6 +7,8 @@ import FooterTextButton from "../../../../components/FooterTextButton";
 
 import {colors} from "../../../../assets/styles"
 import InputBox from "../../../../components/InputBox"
+import InputProperty from "./InputProperty";
+import AddProperty from "./AddProperty";
 
 
 export default function NewTemplateCard({visible, onClose}){
@@ -18,31 +20,17 @@ export default function NewTemplateCard({visible, onClose}){
 
     );
 
+    
+
 
 
     return(
         <ViewModal visible={visible} onClose={onClose} title="New Template" footer={footer}>
             <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
                 <InputBox title="Name" />
-                <InputBox title="Property 2" />
-                <InputBox title="Property 1" />
-                <InputBox title="Property 2" />
-                <InputBox title="Property 1" />
-                <InputBox title="Property 2" />
-                <InputBox title="Property 1" />
-                <InputBox title="Property 2" />
-                <InputBox title="Property 1" />
-                <InputBox title="Property 2" />
-                <InputBox title="Property 1" />
-                <InputBox title="Property 2" />
-                <InputBox title="Property 1" />
-                <InputBox title="Property 2" />
-                <InputBox title="Property 1" />
-                <InputBox title="Property 2" />
-                <InputBox title="Property 1" />
-                <InputBox title="Property 2" />
-                <InputBox title="Property 1" />
-                <InputBox title="Property 2" />
+                <InputProperty title="Property 2" />
+                <AddProperty/>
+
             </ScrollView>
       </ViewModal>
     );

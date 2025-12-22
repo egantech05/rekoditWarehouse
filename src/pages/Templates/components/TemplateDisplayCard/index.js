@@ -2,9 +2,9 @@ import { View, Text, Pressable } from "react-native";
 
 import { TemplateDisplayCardStyles } from "./styles";
 
-export default function TemplateDisplayCard (){
+export default function TemplateDisplayCard ({onPress}){
     return(
-        <Pressable style={TemplateDisplayCardStyles.container}>
+        <Pressable style={TemplateDisplayCardStyles.container} onPress={onPress}>
  
           
                     <Text style={TemplateDisplayCardStyles.title}>Template Name</Text>

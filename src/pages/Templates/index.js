@@ -7,6 +7,7 @@ import TemplateDisplayCard from "./components/TemplateDisplayCard"
 import SearchBar from "../../components/SearchBar"
 import AddCard from "../../components/AddCard"
 import NewTemplateCard from "./components/NewTemplateCard";
+import ViewTemplate from "./components/ViewTemplate";
 
 export default function Templates() {
   const [showNewTemplate, setShowNewTemplate] = useState(false);
@@ -20,7 +21,7 @@ export default function Templates() {
         contentContainerStyle={TemplateStyles.scroll}
         showsVerticalScrollIndicator={false}
       >
-          <TemplateDisplayCard/>
+          <TemplateDisplayCard onPress={() => setShowTemplate(true)} />
           <TemplateDisplayCard/>
           <TemplateDisplayCard/>
           <TemplateDisplayCard/>
@@ -49,6 +50,10 @@ export default function Templates() {
       <NewTemplateCard
         visible={showNewTemplate}
         onClose={()=>setShowNewTemplate(false)}
+      />
+      <ViewTemplate
+        visible={showTemplate}
+        onClose={()=>setShowTemplate(false)}
       />
     </View>
   );
