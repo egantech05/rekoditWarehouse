@@ -30,23 +30,35 @@ export default function MainLayout({ routeName, onLogout }) {
 
     const { user } = useAuth();
     const [warehouseConnected, setWarehouseConnected] = useState(true);
+    const [warehouseName, setWarehouseName] = useState("");
 
     useEffect(() => {
         let ignore = false;
 
         const refreshWarehouseConnected = async () => {
-            if (!user?.id) return;
-
-            const { data, error } = await supabase.from("warehouses").select("id").limit(1);
-
+            if (!user?.id) {
+                setWarehouseConnected(false);
+                setWarehouseName("");
+                return;
+            }
+            
+            const { data, error } = await supabase
+                .from("warehouses")
+                .select("id, name, created_at")
+                .order("created_at", { ascending: false })
+                .limit(1);
+            
             if (ignore) return;
-
+            
             if (error) {
                 console.warn("loadWarehouses failed:", error);
                 return;
             }
+            
 
-            setWarehouseConnected((data ?? []).length > 0);
+            const latestWarehouse = (data ?? [])[0] ?? null;
+            setWarehouseConnected(!!latestWarehouse);
+            setWarehouseName(latestWarehouse?.name ?? "");
         };
 
         refreshWarehouseConnected();
@@ -86,7 +98,7 @@ export default function MainLayout({ routeName, onLogout }) {
                     {panel && (
                         <Pressable style={mainLayoutStyles.overlay} onPress={closePanels}>
                             <Pressable onPress={() => { }} style={mainLayoutStyles.panelInner}>
-                                {panel === "nav" && <NavBar onWarehousePress={handleWarehousePress} onClose={closePanels} onLogout={onLogout} warehouseConnected={warehouseConnected}/>}
+                                {panel === "nav" && <NavBar onWarehousePress={handleWarehousePress} onClose={closePanels} onLogout={onLogout} warehouseConnected={warehouseConnected} warehouseName={warehouseName}/>}
                                 {panel === "warehouse" && <WarehouseSelection />}
                             </Pressable>
                         </Pressable>

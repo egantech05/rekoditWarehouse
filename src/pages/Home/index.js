@@ -158,7 +158,7 @@ export default function Home() {
         </View>
       ) : hasNoWarehouses ? (
         <View style={HomeStyles.emptyState}>
-          <Text style={HomeStyles.emptyTitle}>No warehouse connected</Text>
+          <Text style={HomeStyles.emptyTitle}>No warehouse connected.</Text>
           <Text style={HomeStyles.emptyBody}>Create a warehouse to start tracking inventory.</Text>
 
           <Pressable style={HomeStyles.createWarehouseLink} onPress={() => setShowCreateWarehouse(true)}>
@@ -171,7 +171,7 @@ export default function Home() {
           <AddCard onPress={() => setShowNewItem(true)} disabled={hasNoTemplatesForWarehouse} />
           {hasNoTemplatesForWarehouse && (
             <Text style={HomeStyles.templateNotice}>
-              No inventory template available. Create template first before creating an inventory
+              No inventory template available. Create template first before creating an inventory.
             </Text>
           )}
 

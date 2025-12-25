@@ -4,7 +4,7 @@ import { ItemDisplayCardStyles } from "./styles";
 
 export default function ItemDisplayCard ({ onPress,item,title, templateName, quantity }){
 
-    const displayTtitle = title ?? item?.name ?? "Item";
+    const displayTitle = title ?? item?.name ?? "Item";
     const displayTemplate = templateName ?? item?.template_name ?? "Template";
     const displayQuantity = quantity?? item?.quantity ?? 0;
     return(
