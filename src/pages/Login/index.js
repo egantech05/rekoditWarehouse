@@ -1,36 +1,106 @@
 import {View, Text, Pressable,StyleSheet} from "react-native";
-import {useState} from "react";
-import {useNavigation} from "@react-navigation/native";
+import { useEffect, useState } from "react";
+
 
 import InputBox from "../../components/InputBox"
 import Signup from "../Signup";
 
 import {colors} from "../../assets/styles"
 import FooterTextButton from "../../components/FooterTextButton";
+import { useAuth } from "../../auth/AuthContext";
 
 
 export default function Login(){
+    const { signIn } = useAuth();
 
     const [showSignup, setShowSignup] = useState(false);
+
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+  
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!showSignup) setError("");
+    }, [showSignup]);
+    
+    const onLogin = async () => {
+        setError("");
+    
+        if (!email || !password) {
+          setError("Please enter email and password!");
+          return;
+        }
+    
+        setLoading(true);
+        try {
+          await signIn(email.trim(), password);
+
+        } catch (e) {
+          const msg = e?.message ?? "Login failed!";
+          if (msg.toLowerCase().includes("email not confirmed")) {
+            setError("Please confirm your email before logging in!");
+          } else if (msg.toLowerCase().includes("invalid login credentials")) {
+            setError("Wrong email or password!");
+          } else {
+            setError(msg);
+          }
+        } finally {
+          setLoading(false);
+        }
+      }; 
 
     return (
         <View style={styles.container}>
             <View style={styles.frame}>
                 <Text style={styles.brand}>REKODIT</Text>
                 <Text style={styles.title}>INVENTORY</Text>
-                <InputBox title="Email"/>
-                <InputBox title="Password"/>
-                <Text style={styles.validationAlert}>You are not registered!</Text>
-                <Text style={styles.validationAlert}>Wrong password!</Text>
-                <Pressable style={styles.forgotPass}><Text style={styles.forgotPassText}>Forgot Password?</Text></Pressable>
+
+                <InputBox
+                    title="Email"
+                    value={email}
+                    onChangeText={(t) => {
+                        setEmail(t);
+                        if (error) setError("");
+                    }}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+   
+                />
+
+                <InputBox
+                    title="Password"
+                    value={password}
+                    onChangeText={(t) => {
+                        setPassword(t);
+                        if (error) setError("");
+                    }}
+                    secureTextEntry
+                    autoCapitalize="none"
+                />
+                {error ? <Text style={styles.validationAlert}>{error}</Text> : null}
+
+                <Pressable style={styles.forgotPass} onPress={() => setError("Forgot password not wired yet.")}>
+                 <Text style={styles.forgotPassText}>Forgot Password?</Text>
+                </Pressable>
+
                 <View style={styles.buttonRow}>
-                    <FooterTextButton text="Login" textColor={colors.brandHighlight} color={colors.boldColor} />
+                    <FooterTextButton
+                        text={loading ? "Logging in..." : "Login"}
+                        textColor={colors.brandHighlight}
+                        color={colors.boldColor}
+                        onPress={onLogin}
+                        disabled={loading}
+                    />
                 </View>
                 <Pressable style={styles.signUp} onPress={()=> setShowSignup(true)} >
                     <Text style={styles.signUpText}>No account? Signup here!</Text>
                 </Pressable>
             </View>
+
             <View style={styles.company}><Text style={styles.companyText}>by EGANTECH</Text></View>
+          
             <Signup visible={showSignup} onClose={() => setShowSignup(false)} />
 
         </View>

@@ -1,8 +1,11 @@
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, StyleSheet, Pressable } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigationState } from "@react-navigation/native";
 import StackNavigator from "../components/navigation/StackNavigator";
+
+import { useAuth } from "../auth/AuthContext";
+import { supabase } from "../lib/supabase";
 
 import { mainStyles } from "../assets/styles";
 import Header from "./Header";
@@ -13,7 +16,7 @@ import PageTitle from "../components/PageTitle";
 import { colors } from "../assets/styles";
 
 
-export default function MainLayout({ routeName }) {
+export default function MainLayout({ routeName, onLogout }) {
 
     const pageTitleByRoute = {
     Home: "Inventory",
@@ -24,6 +27,46 @@ export default function MainLayout({ routeName }) {
     const pageTitle = pageTitleByRoute[routeName] ?? "";
 
     const [panel, setPanel] = useState(null);
+
+    const { user } = useAuth();
+    const [warehouseConnected, setWarehouseConnected] = useState(true);
+
+    useEffect(() => {
+        let ignore = false;
+
+        const refreshWarehouseConnected = async () => {
+            if (!user?.id) return;
+
+            const { data, error } = await supabase.from("warehouses").select("id").limit(1);
+
+            if (ignore) return;
+
+            if (error) {
+                console.warn("loadWarehouses failed:", error);
+                return;
+            }
+
+            setWarehouseConnected((data ?? []).length > 0);
+        };
+
+        refreshWarehouseConnected();
+
+        const channel = supabase
+            .channel("warehouses-changes")
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "warehouses" },
+                refreshWarehouseConnected
+            )
+            .subscribe();
+
+        return () => {
+            ignore = true;
+            supabase.removeChannel(channel);
+        };
+    }, [user?.id]);
+
+    const hasNoWarehouses = warehouseConnected === false;
 
     const handleMenuPress = () => {
         setPanel((p) => (p === "nav" ? null : "nav"));
@@ -43,13 +86,13 @@ export default function MainLayout({ routeName }) {
                     {panel && (
                         <Pressable style={mainLayoutStyles.overlay} onPress={closePanels}>
                             <Pressable onPress={() => { }} style={mainLayoutStyles.panelInner}>
-                                {panel === "nav" && <NavBar onWarehousePress={handleWarehousePress} onClose={closePanels}/>}
+                                {panel === "nav" && <NavBar onWarehousePress={handleWarehousePress} onClose={closePanels} onLogout={onLogout} warehouseConnected={warehouseConnected}/>}
                                 {panel === "warehouse" && <WarehouseSelection />}
                             </Pressable>
                         </Pressable>
                     )}
-                    <StatusBar />
-                    <PageTitle title={pageTitle}/>
+                    {!hasNoWarehouses && <StatusBar />}
+                    {!hasNoWarehouses && <PageTitle title={pageTitle}/>}
                     <View style={mainLayoutStyles.mainContent} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
                         <StackNavigator />
                     </View>
