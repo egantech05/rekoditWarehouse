@@ -99,11 +99,16 @@ export default function MainLayout({ routeName, onLogout }) {
                         <Pressable style={mainLayoutStyles.overlay} onPress={closePanels}>
                             <Pressable onPress={() => { }} style={mainLayoutStyles.panelInner}>
                                 {panel === "nav" && <NavBar onWarehousePress={handleWarehousePress} onClose={closePanels} onLogout={onLogout} warehouseConnected={warehouseConnected} warehouseName={warehouseName}/>}
-                                {panel === "warehouse" && <WarehouseSelection />}
+                                {panel === "warehouse" && (
+                                    <WarehouseSelection
+                                        onClose={closePanels}
+                                        onWarehouseSelect={(w) => setWarehouseName(w?.name ?? "")}
+                                    />
+                                    )}
                             </Pressable>
                         </Pressable>
                     )}
-                    {!hasNoWarehouses && <StatusBar />}
+                    {!hasNoWarehouses && <StatusBar warehouseName={warehouseName} />}
                     {!hasNoWarehouses && <PageTitle title={pageTitle}/>}
                     <View style={mainLayoutStyles.mainContent} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
                         <StackNavigator />

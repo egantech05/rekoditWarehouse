@@ -7,12 +7,15 @@ import { useAuth } from "../../auth/AuthContext";
 import { supabase } from "../../lib/supabase";
 
 
-export default function StatusBar(){
+export default function StatusBar({ warehouseName: warehouseNameProp }){
 
     const { user,profile } = useAuth();
     const [warehouseName, setWarehouseName] = useState("");
 
+    const displayWarehouseName = warehouseNameProp ?? warehouseName;
+
     useEffect(() => {
+        if (warehouseNameProp != null) return;
         let ignore=false;
 
         const loadWarehouseName = async()=> {
@@ -46,7 +49,7 @@ export default function StatusBar(){
         };
 
 
-    },[user?.id]);
+    },[user?.id, warehouseNameProp]);
 
     return(
     <View style={statusBarStyles.container}>
@@ -55,7 +58,7 @@ export default function StatusBar(){
             <Ionicons name= "folder-outline" size={16} color="white" />
             <View >
             <Text style={statusBarStyles.warehouseName} numberOfLines={1} ellipsizeMode="tail">
-                {warehouseName || "No warehouse"}
+                     {displayWarehouseName || "No warehouse"}
             </Text>
             </View>
         </View>
