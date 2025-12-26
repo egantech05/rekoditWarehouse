@@ -6,9 +6,9 @@ import {colors} from "../../../../../assets/styles"
 
 
 
-export default function AddProperty (){
+export default function AddProperty({ onPress }) {
     return(
-        <Pressable style={styles.container}>
+        <Pressable style={styles.container} onPress={onPress}>
             <Ionicons name="add-circle-outline" size={24} color={colors.greyText} />
             <Text style={styles.title}>Add Property</Text>
 

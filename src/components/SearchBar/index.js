@@ -1,22 +1,28 @@
 import {View,TextInput,StyleSheet, Pressable} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-
+import { useState } from "react";
 import {colors} from "../../assets/styles"
 
 
 
-export default function SearchBar(){
+export default function SearchBar({ value, onChangeText, onSubmit, placeholder = "Search" }){
+    const [internalValue, setInternalValue] = useState("");
+    const text = value !== undefined ? value : internalValue;
+    const handleChangeText = onChangeText ?? setInternalValue;
 
     return(
         <View style={SearchBarStyles.container}>
             <TextInput
                 style={SearchBarStyles.input}
-                placeholder="Search"
+                placeholder={placeholder}
                 placeholderTextColor={colors.secondary}
                 underlineColorAndroid="transparent"
+                value={text}
+                onChangeText={handleChangeText}
+                onSubmitEditing={() => onSubmit?.(text)}
             
             />
-             <Pressable>
+              <Pressable onPress={() => onSubmit?.(text)}>
                  <Ionicons name={"search-outline"} size={24} color={colors.boldColor} />
              </Pressable>
         </View>

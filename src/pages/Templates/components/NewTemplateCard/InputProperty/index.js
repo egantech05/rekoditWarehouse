@@ -6,17 +6,19 @@ import {colors} from "../../../../../assets/styles"
 
 
 
-export default function InputProperty (){
+export default function InputProperty({ title, value, onChangeText, showDelete, onDelete }) {
     return(
         <View style={styles.container}>
             
-             <Text style={styles.title}>Property</Text>
-             <View style={styles.inputInline}>
-                 <TextInput style={styles.input}></TextInput>
-                 <Pressable>
-                     <Ionicons name="close-circle-outline" size={24} color={colors.red} />
-                 </Pressable>
-             </View>
+            <Text style={styles.title}>{title}</Text>
+            <View style={styles.inputInline}>
+            <TextInput style={styles.input} value={value} onChangeText={onChangeText} />
+            {showDelete ? (
+            <Pressable onPress={onDelete}>
+                <Ionicons name="close-circle-outline" size={24} color={colors.red} />
+            </Pressable>
+            ) : null}
+            </View>
 
         </View>
     );

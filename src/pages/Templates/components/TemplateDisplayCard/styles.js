@@ -24,10 +24,17 @@ export const TemplateDisplayCardStyles= StyleSheet.create({
     },
 
     pillList:{
-        flexDirection:"row",
-        flexWrap: "wrap",
+        flexDirection:"column",
         gap:4,
-    },
+       overflow: "hidden",
+      
+      },
+
+      pillRow:{
+        flexDirection:"row",
+        gap:4,
+        
+      },
 
     pill:{
         alignSelf: "flex-start",
@@ -42,5 +49,9 @@ export const TemplateDisplayCardStyles= StyleSheet.create({
         fontSize:11,
         fontWeight:"bold",
     },
+
+    spacer:{
+        flex: 1,
+      },
 
 });
