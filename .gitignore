@@ -44,4 +44,4 @@ yarn-error.*
 .env
 .env.*
 
-AGENTS.md
+AGENTS.md.expo/
