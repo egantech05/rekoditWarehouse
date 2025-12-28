@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   },
 
   counterText:{
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: "bold",
     color: colors.brandHighlight,
   },

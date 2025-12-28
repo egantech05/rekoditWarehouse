@@ -32,7 +32,7 @@ export const menuBarStyle = StyleSheet.create({
     },
     firstBarText: {
         color: colors.brandHighlight,
-        fontSize: 16,
+        fontSize: 13,
     },
     followingBar: {
         backgroundColor: "#292929",
@@ -40,7 +40,7 @@ export const menuBarStyle = StyleSheet.create({
     },
     followingBarText: {
         color: "white",
-        fontSize: 16,
+        fontSize: 13,
     },
     lastBar: {
         backgroundColor: "#292929",
@@ -48,6 +48,6 @@ export const menuBarStyle = StyleSheet.create({
     },
     lastBarText: {
         color: "white",
-        fontSize: 16,
+        fontSize: 13,
     },
 });

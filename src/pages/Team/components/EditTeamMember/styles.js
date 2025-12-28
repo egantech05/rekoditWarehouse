@@ -18,7 +18,7 @@ export const EditTeamStyles= StyleSheet.create({
     },
 
     roles:{
-        fontSize:16,
+        fontSize:13,
         color:colors.boldColor,
         fontWeight:"bold",
     },

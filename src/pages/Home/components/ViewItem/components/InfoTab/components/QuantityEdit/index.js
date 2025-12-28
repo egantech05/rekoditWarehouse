@@ -37,7 +37,7 @@ export default function QuantityEdit({ value = 0, onChange, onSubmit, disabled =
             </Pressable>
             </View>
             <Pressable style={styles.confirm} disabled={disabled} onPress={onSubmit}>
-            <Ionicons name="checkmark-outline" size={24} color={colors.brandHighlight} />
+            <Ionicons name="checkmark-outline" size={16} color={colors.brandHighlight} />
             </Pressable>
         </View>
     );
@@ -69,13 +69,13 @@ const styles = StyleSheet.create({
 
     qtyBtnText:{
         color: colors.brandHighlight,
-        fontSize:24,
+        fontSize:16,
         fontWeight:"bold",
     },
 
     input:{
         outlineStyle: 'none',
-        fontSize: 24,
+        fontSize: 16,
         color: colors.boldColor,
         padding:8,
         fontWeight: "bold",

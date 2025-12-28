@@ -25,7 +25,7 @@ export const SmallModalStyles = StyleSheet.create({
   },
 
   headerText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "bold",
     color: colors.boldColor,
   },

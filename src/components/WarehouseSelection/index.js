@@ -75,7 +75,7 @@ export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, on
     }, [connectedWarehouseId, warehouses, onWarehouseSelect])
 
     const menuItems = useMemo(() => {
-        const currentLabel = connectedWarehouse?.name || (loadingWarehouses ? "Loading..." : "No warehouse")
+        const currentLabel = connectedWarehouse?.name || (loadingWarehouses ? "Loading..." : "No other warehouse")
         const rest = warehouses.filter((w) => w.id !== connectedWarehouse?.id)
 
         return [

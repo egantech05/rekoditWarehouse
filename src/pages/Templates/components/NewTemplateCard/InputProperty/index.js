@@ -49,7 +49,7 @@ export const styles = StyleSheet.create({
 
     input:{
         outlineStyle: 'none',
-        fontSize: 16,
+        fontSize: 13,
         color: colors.boldColor,
         padding:8,
         fontWeight: "bold",

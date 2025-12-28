@@ -25,7 +25,7 @@ export const navBarStyle = StyleSheet.create({
     },
     warehouseText: {
         color: colors.brandHighlight,
-        fontSize: 16,
+        fontSize: 13,
     },
     template: {
         backgroundColor: "#292929",
@@ -34,7 +34,7 @@ export const navBarStyle = StyleSheet.create({
     },
     templateText: {
         color: "white",
-        fontSize: 16,
+        fontSize: 13,
     },
     team: {
         backgroundColor: "#333333",
@@ -43,7 +43,7 @@ export const navBarStyle = StyleSheet.create({
     },
     teamText: {
         color: "white",
-        fontSize: 16,
+        fontSize: 13,
     },
     logout: {
         backgroundColor: "#B63D3F",
@@ -53,7 +53,7 @@ export const navBarStyle = StyleSheet.create({
     },
     logoutText: {
         color: "white",
-        fontSize: 16,
+        fontSize: 13,
     },
 
     bar: {

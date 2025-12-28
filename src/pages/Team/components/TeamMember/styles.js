@@ -12,13 +12,13 @@ export const TeamMemberStyles = StyleSheet.create({
     },
 
     name:{
-        fontSize:16,
+        fontSize:13,
         color:colors.boldColor,
         fontWeight:"bold",
     },
 
     email:{
-        fontSize:12,
+        fontSize:11,
         color:colors.boldColor,
     },
 
@@ -31,6 +31,6 @@ export const TeamMemberStyles = StyleSheet.create({
 
     rolesText:{
         color: colors.brandHighlight,
-        fontWeight: "bold",
+        fontSize:13,
     },
 });
