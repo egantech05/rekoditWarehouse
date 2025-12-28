@@ -220,7 +220,7 @@ export default function Team() {
 
   return (
     <View style={TeamStyles.container}>
-    <SearchBar value={searchText} onChangeText={setSearchText} placeholder="Search team" />
+    <SearchBar value={searchText} onChangeText={setSearchText} placeholder="Search" />
     {isAdmin ? <AddCard onPress={() => setShowAddMember(true)} disabled={!warehouseId} /> : null}
       <ScrollView style={TeamStyles.scroll} showsVerticalScrollIndicator={false}>
         {!!membersError && <Text style={{ color: colors.red, marginBottom: 8 }}>{membersError}</Text>}
