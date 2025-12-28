@@ -25,6 +25,11 @@ export default function SmallModal({
   keyboardType,
   secureTextEntry,
   textContentType,
+  showInput = true,
+  bodyText = "",
+  showCancel = false,
+  cancelText = "Cancel",
+  onCancel,
 }) {
   const isDisabled = disabled || loading;
 
@@ -39,22 +44,36 @@ export default function SmallModal({
             </Pressable>
           </View>
 
-          <View style={SmallModalStyles.body}>
+        <View style={SmallModalStyles.body}>
+            {showInput ? (
             <InputBox
-              title={inputTitle}
-              value={value}
-              onChangeText={onChangeText}
-              placeholder={placeholder}
-              autoCapitalize={autoCapitalize}
-              autoCorrect={autoCorrect}
-              keyboardType={keyboardType}
-              secureTextEntry={secureTextEntry}
-              textContentType={textContentType}
+                title={inputTitle}
+                value={value}
+                onChangeText={onChangeText}
+                placeholder={placeholder}
+                autoCapitalize={autoCapitalize}
+                autoCorrect={autoCorrect}
+                keyboardType={keyboardType}
+                secureTextEntry={secureTextEntry}
+                textContentType={textContentType}
             />
+            ) : bodyText ? (
+            <Text style={{ color: colors.boldColor }}>{bodyText}</Text>
+            ) : null}
+
             {!!error && <Text style={SmallModalStyles.validationAlert}>{error}</Text>}
-          </View>
+        </View>
 
           <View style={SmallModalStyles.footer}>
+             {showCancel ? (
+                <FooterTextButton
+                    text={cancelText}
+                    color={colors.brightDarker}
+                    textColor={colors.boldColor}
+                    onPress={onCancel ?? onClose}
+                    disabled={isDisabled}
+                />
+                ) : null}
             <FooterTextButton
               text={loading ? "Submitting..." : submitText}
               color={colors.boldColor}

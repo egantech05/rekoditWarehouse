@@ -9,13 +9,14 @@ import { supabase } from "../../lib/supabase"
 
 
 
-export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, onClose }) {
+export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, onClose, selectedWarehouseId }) {
+
     const { user } = useAuth()
 
     const [warehouses, setWarehouses] = useState([])
     const [loadingWarehouses, setLoadingWarehouses] = useState(false)
 
-    const [connectedWarehouseId, setConnectedWarehouseId] = useState(null)
+    const [connectedWarehouseId, setConnectedWarehouseId] = useState(selectedWarehouseId ?? null)
 
     const [showCreateWarehouse, setShowCreateWarehouse] = useState(false)
     const [warehouseName, setWarehouseName] = useState("")
@@ -60,10 +61,18 @@ export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, on
     }, [warehouses, connectedWarehouseId])
 
     useEffect(() => {
-        if (!connectedWarehouseId && warehouses.length) {
-            setConnectedWarehouseId(warehouses[0].id)
+        if (selectedWarehouseId && selectedWarehouseId !== connectedWarehouseId) {
+            setConnectedWarehouseId(selectedWarehouseId)
         }
-    }, [connectedWarehouseId, warehouses])
+    }, [selectedWarehouseId, connectedWarehouseId])
+
+    useEffect(() => {
+        if (!connectedWarehouseId && warehouses.length) {
+            const first = warehouses[0]
+            setConnectedWarehouseId(first.id)
+            onWarehouseSelect?.(first)
+        }
+    }, [connectedWarehouseId, warehouses, onWarehouseSelect])
 
     const menuItems = useMemo(() => {
         const currentLabel = connectedWarehouse?.name || (loadingWarehouses ? "Loading..." : "No warehouse")

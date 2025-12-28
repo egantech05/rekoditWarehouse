@@ -1,12 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [warehouseSelection, setWarehouseSelection] = useState(null);
+  const [warehouseSelectionLoaded, setWarehouseSelectionLoaded] = useState(false);
+
 
   const fetchProfile = useCallback(async (userId) => {
     if (!userId) {
@@ -51,6 +56,52 @@ export function AuthProvider({ children }) {
     };
   }, [fetchProfile]);
 
+  useEffect(() => {
+    let ignore = false;
+  
+    const loadWarehouseSelection = async () => {
+      setWarehouseSelectionLoaded(false);
+  
+      const userId = session?.user?.id;
+      if (!userId) {
+        setWarehouseSelection(null);
+        setWarehouseSelectionLoaded(true);
+        return;
+      }
+  
+      try {
+        const raw = await AsyncStorage.getItem(`warehouseSelection:${userId}`);
+        if (ignore) return;
+        setWarehouseSelection(raw ? JSON.parse(raw) : null);
+      } catch (e) {
+        if (!ignore) setWarehouseSelection(null);
+      } finally {
+        if (!ignore) setWarehouseSelectionLoaded(true);
+      }
+    };
+  
+    loadWarehouseSelection();
+    return () => {
+      ignore = true;
+    };
+  }, [session?.user?.id]);
+  
+  useEffect(() => {
+    if (!warehouseSelectionLoaded) return;
+  
+    const userId = session?.user?.id;
+    if (!userId) return;
+  
+    const key = `warehouseSelection:${userId}`;
+  
+    if (warehouseSelection?.id) {
+      AsyncStorage.setItem(key, JSON.stringify(warehouseSelection)).catch(() => {});
+    } else {
+      AsyncStorage.removeItem(key).catch(() => {});
+    }
+  }, [warehouseSelectionLoaded, session?.user?.id, warehouseSelection]);
+  
+
   const signIn = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -82,8 +133,11 @@ export function AuthProvider({ children }) {
       signIn,
       signUp,
       logout,
+      warehouseSelection,
+      setWarehouseSelection,
+      warehouseSelectionLoaded,
     }),
-    [session, profile, loading, signIn, signUp, logout]
+    [session, profile, loading, signIn, signUp, logout, warehouseSelection, warehouseSelectionLoaded]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

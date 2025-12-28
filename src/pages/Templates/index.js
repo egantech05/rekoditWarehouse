@@ -17,7 +17,7 @@ export default function Templates() {
   const [showNewTemplate, setShowNewTemplate] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
 
-  const { user } = useAuth();
+  const { user, warehouseSelection } = useAuth();
 
   const [warehouseId, setWarehouseId] = useState(null);
   const [loadingWarehouse, setLoadingWarehouse] = useState(false);
@@ -50,6 +50,12 @@ export default function Templates() {
     let ignore = false;
   
     const loadLatestWarehouse = async () => {
+      if (warehouseSelection?.id) {
+        setWarehouseId(warehouseSelection.id);
+        setLoadingWarehouse(false);
+        return;
+      }
+
       if (!user?.id) {
         setWarehouseId(null);
         setTemplates([]);
@@ -81,7 +87,7 @@ export default function Templates() {
     return () => {
       ignore = true;
     };
-  }, [user?.id]);
+  }, [user?.id, warehouseSelection?.id]);
 
   useEffect(() => {
     let ignore = false;

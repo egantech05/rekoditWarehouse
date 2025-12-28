@@ -15,7 +15,9 @@ import { supabase } from "../../lib/supabase";
 
 export default function Home() {
 
-  const { user } = useAuth();
+  const { user, warehouseSelection } = useAuth();
+
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [showNewItem, setShowNewItem] = useState(false);
   const [showItem, setShowItem] = useState(false);
@@ -25,6 +27,30 @@ export default function Home() {
   
   const [items, setItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [searchText, setSearchText] = useState("");
+
+  const normalizedSearch = searchText.trim().toLowerCase();
+  const filteredItems = useMemo(() => {
+    if (!normalizedSearch) return items;
+  
+    return items.filter((item) => {
+      const template = String(item?.name ?? "").toLowerCase();
+  
+      const propsText =
+        item?.properties == null
+          ? ""
+          : typeof item.properties === "string"
+            ? item.properties
+            : typeof item.properties === "object"
+              ? Object.values(item.properties).filter(Boolean).join(" ")
+              : "";
+  
+      return (
+        template.includes(normalizedSearch) ||
+        String(propsText).toLowerCase().includes(normalizedSearch)
+      );
+    });
+  }, [items, normalizedSearch]);
 
   const [showCreateWarehouse, setShowCreateWarehouse] = useState(false);
   const [warehouseName, setWarehouseName] = useState("");
@@ -33,7 +59,44 @@ export default function Home() {
 
   const [hasTemplatesForWarehouse, setHasTemplatesForWarehouse] = useState(null);
 
-  const currentWarehouse = useMemo(() => warehouses?.[0] ?? null, [warehouses]);
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  const currentWarehouse = useMemo(() => {
+    if (!Array.isArray(warehouses) || warehouses.length === 0) return null
+    return warehouses.find((w) => w.id === warehouseSelection?.id) ?? warehouses[0]
+    }, [warehouses, warehouseSelection?.id])
+
+  useEffect(() => {
+    let ignore = false;
+  
+    const loadWarehouseRole = async () => {
+      if (!user?.id || !currentWarehouse?.id) {
+        setIsAdmin(false);
+        return;
+      }
+  
+      try {
+        const { data, error } = await supabase
+          .from("warehouse_members")
+          .select("role")
+          .eq("warehouse_id", currentWarehouse.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+  
+        if (ignore) return;
+        if (error) throw error;
+  
+        setIsAdmin(data?.role === "admin");
+      } catch (e) {
+        if (!ignore) setIsAdmin(false);
+      }
+    };
+  
+    loadWarehouseRole();
+    return () => {
+      ignore = true;
+    };
+  }, [user?.id, currentWarehouse?.id]);
 
   const loadWarehouses = useCallback(async () => {
     if (!user?.id) {
@@ -67,10 +130,9 @@ export default function Home() {
     setLoadingItems(true);
     try {
       const { data, error } = await supabase
-        .from("items")
-        .select("id, name, quantity, template_name, warehouse_id, created_at")
-        .eq("warehouse_id", warehouseId)
-        .order("created_at", { ascending: false });
+      .from("items")
+      .select("*, templates ( properties )")
+      .eq("warehouse_id", warehouseId);
 
       if (error) throw error;
       setItems(data ?? []);
@@ -81,6 +143,89 @@ export default function Home() {
       setLoadingItems(false);
     }
   }, []);
+
+  const onUpdateItemQuantity = useCallback(async (itemId, deltaInput, note, prevQuantity, warehouseId) => {
+    const safePrevQuantity = Math.max(0, Math.trunc(Number(prevQuantity) || 0));
+    const safeDelta = Math.trunc(Number(deltaInput) || 0);
+  
+    const nextQuantity = Math.max(0, safePrevQuantity + safeDelta);
+    const appliedDelta = nextQuantity - safePrevQuantity;
+  
+    if (!warehouseId) throw new Error("Missing warehouse_id.");
+    if (!user?.id) throw new Error("Missing user.");
+  
+    const trimmedNote = String(note ?? "").trim();
+    if (!trimmedNote) throw new Error("Notes are required.");
+  
+    if (appliedDelta !== 0) {
+      const eventType = "adjust"; // allowed by your constraint
+  
+      const { error: eventError } = await supabase.from("item_events").insert({
+        warehouse_id: warehouseId,
+        item_id: itemId,
+        delta: appliedDelta,
+        event_type: eventType,
+        note: trimmedNote,
+        actor_id: user.id,
+      });
+  
+      if (eventError) throw eventError;
+    }
+  
+    const { data, error } = await supabase
+      .from("items")
+      .update({ quantity: nextQuantity })
+      .eq("id", itemId)
+      .select("*")
+      .maybeSingle();
+  
+    if (error) throw error;
+  
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === itemId ? (data ? { ...data, templates: it.templates } : { ...it, quantity: nextQuantity }) : it
+      )
+    );
+    setSelectedItem((prev) =>
+      prev?.id === itemId
+        ? (data ? { ...data, templates: prev.templates } : { ...prev, quantity: nextQuantity })
+        : prev
+    );
+  }, [user?.id]);
+  
+
+  
+
+  const onUpdateItemInfo = useCallback(async (itemId, nextProperties) => {
+    const { data, error } = await supabase
+      .from("items")
+      .update({ properties: nextProperties })
+      .eq("id", itemId)
+      .select("*")
+      .maybeSingle();
+  
+    if (error) throw error;
+  
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === itemId ? (data ? { ...data, templates: it.templates } : { ...it, properties: nextProperties }) : it
+      )
+    );
+    setSelectedItem((prev) =>
+      prev?.id === itemId
+        ? (data ? { ...data, templates: prev.templates } : { ...prev, properties: nextProperties })
+        : prev
+    );
+  }, []);
+
+  const onRemoveItem = useCallback(async (itemId) => {
+    const { error } = await supabase.from("items").delete().eq("id", itemId);
+    if (error) throw error;
+  
+    setItems((prev) => prev.filter((it) => it.id !== itemId));
+    setSelectedItem((prev) => (prev?.id === itemId ? null : prev));
+  }, []);
+
 
   const loadTemplatesForWarehouse = useCallback (async (warehouseId) => {
     if (!warehouseId){
@@ -167,7 +312,7 @@ export default function Home() {
         </View>
       ) : (
         <>
-          <SearchBar />
+          <SearchBar value={searchText} onChangeText={setSearchText} />
           <AddCard onPress={() => setShowNewItem(true)} disabled={hasNoTemplatesForWarehouse} />
           {hasNoTemplatesForWarehouse && (
             <Text style={HomeStyles.templateNotice}>
@@ -178,17 +323,42 @@ export default function Home() {
           <ScrollView contentContainerStyle={HomeStyles.scroll} showsVerticalScrollIndicator={false}>
             {loadingItems ? (
               <Text style={HomeStyles.itemsEmptyText}>Loading items...</Text>
-            ) : items.length === 0 ? (
+            ) : filteredItems.length === 0 ? (
               <Text style={HomeStyles.itemsEmptyText}>No items yet.</Text>
             ) : (
-              items.map((item) => (
-                <ItemDisplayCard key={item.id} item={item} onPress={() => setShowItem(true)} />
+              filteredItems.map((item) => (
+                <ItemDisplayCard
+                  key={item.id}
+                  item={item}
+                  onPress={() => {
+                    setSelectedItem(item);
+                    setShowItem(true);
+                  }}
+                />
               ))
             )}
           </ScrollView>
 
-          <NewItemCard visible={showNewItem} onClose={() => setShowNewItem(false)} />
-          <ViewItem visible={showItem} onClose={() => setShowItem(false)} />
+          <NewItemCard
+            visible={showNewItem}
+            warehouseId={currentWarehouse?.id}
+            onClose={() => setShowNewItem(false)}
+            onCreated={() => {
+              if (currentWarehouse?.id) return loadItems(currentWarehouse.id);
+            }}
+          />
+          <ViewItem
+            visible={showItem}
+            item={selectedItem}
+            onUpdateQuantity={onUpdateItemQuantity}
+            canRemove={isAdmin}
+            onUpdateItemInfo={onUpdateItemInfo}
+            onRemoveItem={onRemoveItem}
+            onClose={() => {
+              setShowItem(false);
+              setSelectedItem(null);
+            }}
+          />
         </>
       )}
 

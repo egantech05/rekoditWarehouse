@@ -4,17 +4,40 @@ import { Ionicons } from "@expo/vector-icons";
 
 import {colors} from "../../../../../../../../assets/styles"
 
-export default function QuantityEdit(){
+export default function QuantityEdit({ value = 0, onChange, onSubmit, disabled = false }) {
 
     return(
         <View style={styles.container}>
             <View style={styles.inputBox}>
-                <Pressable style={styles.qtyBtn}><Text style={styles.qtyBtnText}>-</Text></Pressable>
-                <TextInput style={styles.input}></TextInput>
-                <Pressable style={styles.qtyBtn}><Text style={styles.qtyBtnText}>+</Text></Pressable>
+            <Pressable
+            style={styles.qtyBtn}
+            disabled={disabled}
+            onPress={() => onChange?.(Number(value) - 1)}
+            >
+            <Text style={styles.qtyBtnText}>-</Text>
+            </Pressable>
+
+            <TextInput
+            style={styles.input}
+            value={String(value)}
+            keyboardType="numbers-and-punctuation"
+            editable={!disabled}
+            onChangeText={(t) => {
+            const next = parseInt(t, 10);
+            onChange?.(Number.isFinite(next) ? next : 0);
+            }}
+            />
+
+            <Pressable
+            style={styles.qtyBtn}
+            disabled={disabled}
+            onPress={() => onChange?.(Number(value) + 1)}
+            >
+            <Text style={styles.qtyBtnText}>+</Text>
+            </Pressable>
             </View>
-            <Pressable style={styles.confirm}>
-                <Ionicons name="checkmark-outline" size={24} color={colors.brandHighlight} />
+            <Pressable style={styles.confirm} disabled={disabled} onPress={onSubmit}>
+            <Ionicons name="checkmark-outline" size={24} color={colors.brandHighlight} />
             </Pressable>
         </View>
     );
