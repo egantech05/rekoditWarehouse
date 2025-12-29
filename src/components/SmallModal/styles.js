@@ -7,11 +7,13 @@ export const SmallModalStyles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.8)",
+ 
   },
 
   sheet: {
     backgroundColor: colors.bright,
     borderRadius:16,
+    width: "80%",
  
   },
 

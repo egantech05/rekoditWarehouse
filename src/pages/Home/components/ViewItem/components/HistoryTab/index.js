@@ -1,13 +1,18 @@
 import { View, Text, StyleSheet, ScrollView } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { colors } from "../../../../../../assets/styles"
-import { supabase } from "../../../../../../lib/supabase";
+
+import { fetchItemEvents } from "../../../../../../lib/api/itemEvents";
+import { fetchProfilesByUserIds } from "../../../../../../lib/api/profiles";
+
 
 import LogDisplay from "./components/LogDisplay";
 
 export default function HistoryTab({ item, startDate, endDate }) {
   const [events, setEvents] = useState([]);
   const [eventsError, setEventsError] = useState("");
+
+  const actorNameCacheRef = useRef(new Map());
 
 
 useEffect(() => {
@@ -19,60 +24,57 @@ useEffect(() => {
       setEvents([]);
       return;
     }
+    
     const startISO = startDate
-    ? (() => {
-        const d = new Date(startDate);
-        d.setHours(0, 0, 0, 0);
-        return d.toISOString();
-      })()
-    : null;
-  
-  const endISO = endDate
-    ? (() => {
-        const d = new Date(endDate);
-        d.setHours(23, 59, 59, 999);
-        return d.toISOString();
-      })()
-    : null;
-  
-  let q = supabase
-    .from("item_events")
-    .select("id, delta, event_type, note, actor_id, created_at")
-    .eq("item_id", item.id);
-  
-  if (item?.warehouse_id) q = q.eq("warehouse_id", item.warehouse_id);
-  if (startISO) q = q.gte("created_at", startISO);
-  if (endISO) q = q.lte("created_at", endISO);
-  
-  q = q.order("created_at", { ascending: false });
-  
-  const { data, error } = await q;
-  if (!ignore) {
-    if (error) {
-      console.warn("load item_events failed:", error);
-      setEventsError(error?.message ?? "Failed to load history.");
-      setEvents([]);
-    } else {
-      setEventsError("");
-      const rows = data ?? [];
-
+      ? (() => {
+          const d = new Date(startDate);
+          d.setHours(0, 0, 0, 0);
+          return d.toISOString();
+        })()
+      : null;
+    
+    const endISO = endDate
+      ? (() => {
+          const d = new Date(endDate);
+          d.setHours(23, 59, 59, 999);
+          return d.toISOString();
+        })()
+      : null;
+    try {
+      const rows = await fetchItemEvents({
+        itemId: item.id,
+        warehouseId: item?.warehouse_id,
+        startISO,
+        endISO,
+      });
+    
+      if (ignore) return;
+    
       const actorIds = [...new Set(rows.map((r) => r?.actor_id).filter(Boolean))];
-      
-      let actorNames = {};
-      if (actorIds.length) {
-        const { data: profileRows, error: profileError } = await supabase
-          .from("profiles")
-          .select("user_id, full_name")
-          .in("user_id", actorIds);
-      
-        if (!profileError) {
-          actorNames = Object.fromEntries((profileRows ?? []).map((p) => [p.user_id, p.full_name]));
+      const missingIds = actorIds.filter((id) => !actorNameCacheRef.current.has(id));
+    
+      if (missingIds.length) {
+        try {
+          const profiles = await fetchProfilesByUserIds(missingIds);
+          if (ignore) return;
+    
+          for (const p of profiles) {
+            actorNameCacheRef.current.set(p.user_id, p.full_name);
+          }
+        } catch (e) {
+          // Optional lookup; ignore failures
         }
       }
-      
-      setEvents(rows.map((r) => ({ ...r, actor_name: actorNames[r.actor_id] ?? "" })));
+    
+      setEventsError("");
+      setEvents(rows.map((r) => ({ ...r, actor_name: actorNameCacheRef.current.get(r.actor_id) ?? "" })));
+    } catch (e) {
+      if (ignore) return;
+      console.warn("load item_events failed:", e);
+      setEventsError(e?.message ?? "Failed to load history.");
+      setEvents([]);
     }
-  }
+
   };
 
   load();

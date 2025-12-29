@@ -29,7 +29,7 @@ export const HomeStyles = StyleSheet.create({
 
   emptyTitle: {
     color: colors.bright,
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: "bold",
   },
 

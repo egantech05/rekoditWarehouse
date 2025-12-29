@@ -1,5 +1,4 @@
 import { View, Text, TextInput } from "react-native";
-import { DropDownStyles } from "./styles";
 
 import { InputBoxStyles } from "./styles";
 

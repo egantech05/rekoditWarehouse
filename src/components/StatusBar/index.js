@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -9,7 +9,8 @@ import { supabase } from "../../lib/supabase";
 
 export default function StatusBar({ warehouseName: warehouseNameProp }){
 
-    const { user,profile } = useAuth();
+    const { user, profile, loading, warehouseSelectionLoaded } = useAuth();
+
     const [warehouseName, setWarehouseName] = useState("");
 
     const displayWarehouseName = warehouseNameProp ?? warehouseName;
@@ -57,9 +58,15 @@ export default function StatusBar({ warehouseName: warehouseNameProp }){
             
             <Ionicons name= "folder-outline" size={16} color="white" />
             <View >
+            <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1 }}>
             <Text style={statusBarStyles.warehouseName} numberOfLines={1} ellipsizeMode="tail">
-                     {displayWarehouseName || "No warehouse"}
+            {displayWarehouseName || "No warehouse"}
             </Text>
+
+            {(loading || !warehouseSelectionLoaded) ? (
+            <ActivityIndicator size="small" color="white" style={{ marginLeft: 6 }} />
+            ) : null}
+            </View>
             </View>
         </View>
         <View style={statusBarStyles.user}>

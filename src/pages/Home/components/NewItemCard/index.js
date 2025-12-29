@@ -10,7 +10,8 @@ import Dropdown from "../../../../components/DropDown"
 import InputBox from "../../../../components/InputBox"
 
 import { useAuth } from "../../../../auth/AuthContext";
-import { supabase } from "../../../../lib/supabase";
+import { fetchTemplatesForItemCreation } from "../../../../lib/api/templates";
+import { createItem } from "../../../../lib/api/items";
 
 
 export default function NewItemCard({ visible, onClose, warehouseId, onCreated }) {
@@ -44,15 +45,9 @@ export default function NewItemCard({ visible, onClose, warehouseId, onCreated }
   
         setTemplatesLoading(true);
         try {
-            const { data, error } = await supabase
-                .from("templates")
-                .select("id, name, properties")
-                .eq("warehouse_id", warehouseId);
-        
-            if (ignore) return;
-            if (error) throw error;
-        
-            setTemplates(data ?? []);
+          const data = await fetchTemplatesForItemCreation({ warehouseId });
+          if (ignore) return;
+          setTemplates(data ?? []);
         } catch (e) {
             if (!ignore) setTemplates([]);
         } finally {
@@ -94,23 +89,15 @@ export default function NewItemCard({ visible, onClose, warehouseId, onCreated }
             properties[key] = trimmed ? trimmed : null; // null is OK
           }
       
-          const insertRow = {
-            warehouse_id: warehouseId,
-            template_id: selectedTemplate?.id,
+
+      
+          await createItem({
+            warehouseId,
+            templateId: selectedTemplate?.id,
             name: selectedTemplate?.name ?? "Inventory",
             quantity: 0,
             properties,
-          };
-      
-          let { error } = await supabase.from("items").insert(insertRow);
-      
-
-          if (error && String(error.message ?? "").includes("properties")) {
-            const { properties: _properties, ...baseRow } = insertRow;
-            ({ error } = await supabase.from("items").insert(baseRow));
-          }
-      
-          if (error) throw error;
+          });
       
           onClose?.();
           try {

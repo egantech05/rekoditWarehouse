@@ -11,11 +11,17 @@ import ViewItem from "./components/ViewItem";
 
 import SmallModal from "../../components/SmallModal";
 import { useAuth } from "../../auth/AuthContext";
-import { supabase } from "../../lib/supabase";
+
+import { fetchWarehouses, createWarehouse, fetchWarehouseRole } from "../../lib/api/warehouses";
+import { fetchItems, adjustItemQuantity, updateItemProperties, deleteItem } from "../../lib/api/items";
+import { warehouseHasTemplates } from "../../lib/api/templates";
+import { filterBySearch, buildSearchHaystack } from "../../lib/search";
+
 
 export default function Home() {
 
-  const { user, warehouseSelection } = useAuth();
+  const { user, warehouseSelection, warehouseSelectionLoaded } = useAuth();
+
 
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -27,30 +33,14 @@ export default function Home() {
   
   const [items, setItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [itemsError, setItemsError] = useState("");
   const [searchText, setSearchText] = useState("");
 
-  const normalizedSearch = searchText.trim().toLowerCase();
-  const filteredItems = useMemo(() => {
-    if (!normalizedSearch) return items;
-  
-    return items.filter((item) => {
-      const template = String(item?.name ?? "").toLowerCase();
-  
-      const propsText =
-        item?.properties == null
-          ? ""
-          : typeof item.properties === "string"
-            ? item.properties
-            : typeof item.properties === "object"
-              ? Object.values(item.properties).filter(Boolean).join(" ")
-              : "";
-  
-      return (
-        template.includes(normalizedSearch) ||
-        String(propsText).toLowerCase().includes(normalizedSearch)
-      );
-    });
-  }, [items, normalizedSearch]);
+  const filteredItems = useMemo(
+    () => filterBySearch(items, searchText, (item) => buildSearchHaystack(item?.name, item?.properties)),
+    [items, searchText]
+  );
+
 
   const [showCreateWarehouse, setShowCreateWarehouse] = useState(false);
   const [warehouseName, setWarehouseName] = useState("");
@@ -59,9 +49,15 @@ export default function Home() {
 
   const [hasTemplatesForWarehouse, setHasTemplatesForWarehouse] = useState(null);
 
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItemId, setSelectedItemId] = useState(null);
+
+  const selectedItem = useMemo(
+    () => items.find((it) => it.id === selectedItemId) ?? null,
+    [items, selectedItemId]
+  );
 
   const currentWarehouse = useMemo(() => {
+    if (!warehouseSelectionLoaded) return null;
     if (!Array.isArray(warehouses) || warehouses.length === 0) return null
     return warehouses.find((w) => w.id === warehouseSelection?.id) ?? warehouses[0]
     }, [warehouses, warehouseSelection?.id])
@@ -74,19 +70,11 @@ export default function Home() {
         setIsAdmin(false);
         return;
       }
-  
+      
       try {
-        const { data, error } = await supabase
-          .from("warehouse_members")
-          .select("role")
-          .eq("warehouse_id", currentWarehouse.id)
-          .eq("user_id", user.id)
-          .maybeSingle();
-  
+        const role = await fetchWarehouseRole({ warehouseId: currentWarehouse.id, userId: user.id });
         if (ignore) return;
-        if (error) throw error;
-  
-        setIsAdmin(data?.role === "admin");
+        setIsAdmin(role === "admin");
       } catch (e) {
         if (!ignore) setIsAdmin(false);
       }
@@ -106,12 +94,7 @@ export default function Home() {
 
     setLoadingWarehouses(true);
     try {
-      const { data, error } = await supabase
-        .from("warehouses")
-        .select("id, name, created_at")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await fetchWarehouses();
       setWarehouses(data ?? []);
     } catch (e) {
       console.warn("loadWarehouses failed:", e);
@@ -128,16 +111,13 @@ export default function Home() {
     }
 
     setLoadingItems(true);
+    setItemsError("");
     try {
-      const { data, error } = await supabase
-      .from("items")
-      .select("*, templates ( properties )")
-      .eq("warehouse_id", warehouseId);
-
-      if (error) throw error;
+      const data = await fetchItems({ warehouseId });
       setItems(data ?? []);
     } catch (e) {
       console.warn("loadItems failed:", e);
+      setItemsError(e?.message ?? "Failed to load items.");
       setItems([]);
     } finally {
       setLoadingItems(false);
@@ -145,85 +125,44 @@ export default function Home() {
   }, []);
 
   const onUpdateItemQuantity = useCallback(async (itemId, deltaInput, note, prevQuantity, warehouseId) => {
-    const safePrevQuantity = Math.max(0, Math.trunc(Number(prevQuantity) || 0));
-    const safeDelta = Math.trunc(Number(deltaInput) || 0);
-  
-    const nextQuantity = Math.max(0, safePrevQuantity + safeDelta);
-    const appliedDelta = nextQuantity - safePrevQuantity;
-  
-    if (!warehouseId) throw new Error("Missing warehouse_id.");
-    if (!user?.id) throw new Error("Missing user.");
-  
-    const trimmedNote = String(note ?? "").trim();
-    if (!trimmedNote) throw new Error("Notes are required.");
-  
-    if (appliedDelta !== 0) {
-      const eventType = "adjust"; // allowed by your constraint
-  
-      const { error: eventError } = await supabase.from("item_events").insert({
-        warehouse_id: warehouseId,
-        item_id: itemId,
-        delta: appliedDelta,
-        event_type: eventType,
-        note: trimmedNote,
-        actor_id: user.id,
-      });
-  
-      if (eventError) throw eventError;
-    }
-  
-    const { data, error } = await supabase
-      .from("items")
-      .update({ quantity: nextQuantity })
-      .eq("id", itemId)
-      .select("*")
-      .maybeSingle();
-  
-    if (error) throw error;
-  
+
+    const { item: data, nextQuantity } = await adjustItemQuantity({
+      itemId,
+      deltaInput,
+      note,
+      prevQuantity,
+      warehouseId,
+      actorId: user?.id,
+    });
+    
     setItems((prev) =>
       prev.map((it) =>
         it.id === itemId ? (data ? { ...data, templates: it.templates } : { ...it, quantity: nextQuantity }) : it
       )
-    );
-    setSelectedItem((prev) =>
-      prev?.id === itemId
-        ? (data ? { ...data, templates: prev.templates } : { ...prev, quantity: nextQuantity })
-        : prev
-    );
+    );  
+
   }, [user?.id]);
   
 
   
 
   const onUpdateItemInfo = useCallback(async (itemId, nextProperties) => {
-    const { data, error } = await supabase
-      .from("items")
-      .update({ properties: nextProperties })
-      .eq("id", itemId)
-      .select("*")
-      .maybeSingle();
-  
-    if (error) throw error;
-  
+    const data = await updateItemProperties({ itemId, nextProperties });
+
     setItems((prev) =>
       prev.map((it) =>
         it.id === itemId ? (data ? { ...data, templates: it.templates } : { ...it, properties: nextProperties }) : it
       )
     );
-    setSelectedItem((prev) =>
-      prev?.id === itemId
-        ? (data ? { ...data, templates: prev.templates } : { ...prev, properties: nextProperties })
-        : prev
-    );
+
+
   }, []);
 
   const onRemoveItem = useCallback(async (itemId) => {
-    const { error } = await supabase.from("items").delete().eq("id", itemId);
-    if (error) throw error;
+    await deleteItem({ itemId });
   
     setItems((prev) => prev.filter((it) => it.id !== itemId));
-    setSelectedItem((prev) => (prev?.id === itemId ? null : prev));
+    setSelectedItemId((prev) => (prev === itemId ? null : prev));
   }, []);
 
 
@@ -236,15 +175,8 @@ export default function Home() {
     setHasTemplatesForWarehouse(null);
 
     try{
-      const{data,error} = await supabase
-        .from("templates")
-        .select("id")
-        .eq("warehouse_id", warehouseId)
-        .limit(1);
-
-      if (error) throw error;
-      
-      setHasTemplatesForWarehouse((data??[]).length>0);
+      const hasAny = await warehouseHasTemplates({ warehouseId });
+      setHasTemplatesForWarehouse(hasAny);
     } catch (e){
       console.warn("loadTemplatesForWarehouse failed: ",e);
       setHasTemplatesForWarehouse(null);
@@ -282,8 +214,7 @@ export default function Home() {
 
     setCreateLoading(true);
     try {
-      const { error } = await supabase.from("warehouses").insert({ name, created_by:user.id });
-      if (error) throw error;
+      await createWarehouse({ name, createdBy: user.id });
 
       setShowCreateWarehouse(false);
       await loadWarehouses();
@@ -297,7 +228,7 @@ export default function Home() {
   return (
 
     <View style={HomeStyles.container}>
-      {loadingWarehouses ? (
+      {loadingWarehouses && warehouses == null ? (
         <View style={HomeStyles.emptyState}>
           <Text style={HomeStyles.loadingText}>Loading...</Text>
         </View>
@@ -321,17 +252,22 @@ export default function Home() {
           )}
 
           <ScrollView contentContainerStyle={HomeStyles.scroll} showsVerticalScrollIndicator={false}>
-            {loadingItems ? (
+          {loadingItems && items.length === 0 ? (
               <Text style={HomeStyles.itemsEmptyText}>Loading items...</Text>
+            ) : itemsError ? (
+              <Pressable onPress={() => currentWarehouse?.id && loadItems(currentWarehouse.id)}>
+                <Text style={HomeStyles.itemsEmptyText}>{itemsError}</Text>
+                <Text style={HomeStyles.itemsEmptyText}>Tap to retry</Text>
+              </Pressable>
             ) : filteredItems.length === 0 ? (
-              <Text style={HomeStyles.itemsEmptyText}>No items yet.</Text>
+              <Text style={HomeStyles.itemsEmptyText}>No inventory available.</Text>
             ) : (
               filteredItems.map((item) => (
                 <ItemDisplayCard
                   key={item.id}
                   item={item}
                   onPress={() => {
-                    setSelectedItem(item);
+                    setSelectedItemId(item.id);
                     setShowItem(true);
                   }}
                 />
@@ -356,7 +292,7 @@ export default function Home() {
             onRemoveItem={onRemoveItem}
             onClose={() => {
               setShowItem(false);
-              setSelectedItem(null);
+              setSelectedItemId(null);
             }}
           />
         </>

@@ -4,9 +4,7 @@ import {colors} from "../../../../assets/styles"
 
 
 export const ViewItemStyles= StyleSheet.create({
-    tabs:{
-        backgroundColor: colors.brightDarker,
-    },
+
     container:{
         backgroundColor: colors.bright,
         padding: 16,

@@ -5,7 +5,8 @@ import MenuBar from "../MenuBar"
 import SmallModal from "../SmallModal"
 
 import { useAuth } from "../../auth/AuthContext"
-import { supabase } from "../../lib/supabase"
+import { fetchWarehouses, createWarehouse } from "../../lib/api/warehouses"
+
 
 
 
@@ -31,15 +32,7 @@ export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, on
 
         setLoadingWarehouses(true)
         try {
-            const { data, error } = await supabase
-                .from("warehouses")
-                .select("id, name, created_at")
-                .eq("created_by", user.id)
-                .order("created_at", { ascending: false })
-
-            if (error) throw error
-
-            const next = data ?? []
+            const next = await fetchWarehouses()
             setWarehouses(next)
             return next
         } catch (e) {
@@ -116,8 +109,7 @@ export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, on
 
         setCreateLoading(true)
         try {
-            const { error } = await supabase.from("warehouses").insert({ name, created_by: user.id })
-            if (error) throw error
+            await createWarehouse({ name, createdBy: user.id })
 
             setShowCreateWarehouse(false)
             setWarehouseName("")

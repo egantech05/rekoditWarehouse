@@ -1,5 +1,5 @@
 import { View, ScrollView, Text } from "react-native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 import { TemplateStyles } from "./styles";
 
@@ -10,14 +10,18 @@ import NewTemplateCard from "./components/NewTemplateCard";
 import ViewTemplate from "./components/ViewTemplate";
 
 import { useAuth } from "../../auth/AuthContext";
-import { supabase } from "../../lib/supabase";
 import { colors } from "../../assets/styles";
+
+import { fetchTemplates, createTemplate, updateTemplate, deleteTemplate } from "../../lib/api/templates";
+import { filterBySearch, buildSearchHaystack } from "../../lib/search";
+
 
 export default function Templates() {
   const [showNewTemplate, setShowNewTemplate] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
 
-  const { user, warehouseSelection } = useAuth();
+  const { user, warehouseSelection, warehouseSelectionLoaded } = useAuth();
+
 
   const [warehouseId, setWarehouseId] = useState(null);
   const [loadingWarehouse, setLoadingWarehouse] = useState(false);
@@ -37,57 +41,20 @@ export default function Templates() {
 
   const [searchText, setSearchText] = useState("");
 
-  const normalizedSearch = searchText.trim().toLowerCase();
-  const filteredTemplates = normalizedSearch
-    ? templates.filter((t) => {
-        const name = String(t?.name ?? "").toLowerCase();
-        const props = Array.isArray(t?.properties) ? t.properties.join(" ").toLowerCase() : "";
-        return name.includes(normalizedSearch) || props.includes(normalizedSearch);
-      })
-    : templates;
+const filteredTemplates = useMemo(
+  () => filterBySearch(templates, searchText, (t) => buildSearchHaystack(t?.name, t?.properties)),
+  [templates, searchText]
+);
 
-  useEffect(() => {
-    let ignore = false;
-  
-    const loadLatestWarehouse = async () => {
-      if (warehouseSelection?.id) {
-        setWarehouseId(warehouseSelection.id);
-        setLoadingWarehouse(false);
-        return;
-      }
+useEffect(() => {
+  if (!warehouseSelectionLoaded) {
+    setLoadingWarehouse(true);
+    return;
+  }
 
-      if (!user?.id) {
-        setWarehouseId(null);
-        setTemplates([]);
-        return;
-      }
-  
-      setLoadingWarehouse(true);
-      try {
-        const { data, error } = await supabase
-          .from("warehouses")
-          .select("id, created_at")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-  
-        if (ignore) return;
-        if (error) throw error;
-  
-        setWarehouseId(data?.id ?? null);
-      } catch (e) {
-        console.warn("loadLatestWarehouse failed:", e);
-        if (!ignore) setWarehouseId(null);
-      } finally {
-        if (!ignore) setLoadingWarehouse(false);
-      }
-    };
-  
-    loadLatestWarehouse();
-    return () => {
-      ignore = true;
-    };
-  }, [user?.id, warehouseSelection?.id]);
+  setWarehouseId(warehouseSelection?.id ?? null);
+  setLoadingWarehouse(false);
+}, [warehouseSelectionLoaded, warehouseSelection?.id]);
 
   useEffect(() => {
     let ignore = false;
@@ -100,14 +67,8 @@ export default function Templates() {
   
       setLoadingTemplates(true);
       try {
-        const { data, error } = await supabase
-          .from("templates")
-          .select("*")
-          .eq("warehouse_id", warehouseId);
-  
+        const data = await fetchTemplates({ warehouseId });
         if (ignore) return;
-        if (error) throw error;
-  
         setTemplates(data ?? []);
       } catch (e) {
         console.warn("loadTemplates failed:", e);
@@ -133,17 +94,9 @@ export default function Templates() {
       }
   
       try {
-        const { data, error } = await supabase
-          .from("warehouse_members") 
-          .select("role") 
-          .eq("warehouse_id", warehouseId)
-          .eq("user_id", user.id)
-          .maybeSingle();
-  
+        const role = await fetchWarehouseRole({ warehouseId, userId: user.id });
         if (ignore) return;
-        if (error) throw error;
-  
-        setIsAdmin(data?.role === "admin");
+        setIsAdmin(role === "admin");
       } catch (e) {
         if (!ignore) setIsAdmin(false);
       }
@@ -171,19 +124,11 @@ export default function Templates() {
   
     setCreateLoading(true);
     try {
-      const insertRow = { name: trimmed, warehouse_id: warehouseId, properties };
-  
-      const { error } = await supabase.from("templates").insert(insertRow);
-      if (error) throw error;
-  
+      await createTemplate({ warehouseId, name: trimmed, properties });
+
       setShowNewTemplate(false);
-  
-      const { data, error: reloadError } = await supabase
-        .from("templates")
-        .select("*")
-        .eq("warehouse_id", warehouseId);
-  
-      if (reloadError) throw reloadError;
+      
+      const data = await fetchTemplates({ warehouseId });
       setTemplates(data ?? []);
     } catch (e) {
       setCreateError(e?.message ?? "Failed to create template.");
@@ -211,15 +156,8 @@ export default function Templates() {
   
     setTemplateActionLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("templates")
-        .update({ name: trimmed, properties: trimmedProperties })
-        .eq("id", templateId)
-        .select("*")
-        .maybeSingle();
-  
-      if (error) throw error;
-  
+      const data = await updateTemplate({ templateId, name: trimmed, properties: trimmedProperties });
+
       setTemplates((prev) => prev.map((t) => (t.id === templateId ? (data ?? t) : t)));
       setSelectedTemplate((prev) => (prev?.id === templateId ? (data ?? prev) : prev));
       return true;
@@ -241,9 +179,8 @@ export default function Templates() {
   
     setTemplateActionLoading(true);
     try {
-      const { error } = await supabase.from("templates").delete().eq("id", templateId);
-      if (error) throw error;
-  
+      await deleteTemplate({ templateId });
+
       setTemplates((prev) => prev.filter((t) => t.id !== templateId));
       setSelectedTemplate(null);
       setShowTemplate(false);
@@ -275,7 +212,7 @@ export default function Templates() {
         <Text style={{ width: "100%", textAlign: "center", color: colors.greyText, paddingTop: 24 }}>
           No warehouse connected.
         </Text>
-      ) : loadingTemplates ? (
+     ) : loadingTemplates && templates.length === 0 ? (
         <Text style={{ width: "100%", textAlign: "center", color: colors.greyText, paddingTop: 24 }}>
           Loading templates...
         </Text>

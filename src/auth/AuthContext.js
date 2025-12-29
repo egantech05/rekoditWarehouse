@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { AppState } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -11,6 +12,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [warehouseSelection, setWarehouseSelection] = useState(null);
   const [warehouseSelectionLoaded, setWarehouseSelectionLoaded] = useState(false);
+  
 
 
   const fetchProfile = useCallback(async (userId) => {
@@ -34,20 +36,44 @@ export function AuthProvider({ children }) {
 
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase.auth.getSession();
-      if (error) console.warn("getSession error:", error);
-
-      if (!ignore) {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) console.warn("getSession error:", error);
+    
+        if (ignore) return;
+    
         const nextSession = data?.session ?? null;
         setSession(nextSession);
-        await fetchProfile(nextSession?.user?.id);
-        setLoading(false);
+    
+        try {
+          await fetchProfile(nextSession?.user?.id);
+        } catch (e) {
+          console.warn("fetchProfile failed:", e);
+        }
+      } catch (e) {
+        if (!ignore) {
+          console.warn("getSession failed:", e);
+          setSession(null);
+          setProfile(null);
+        }
+      } finally {
+        if (!ignore) setLoading(false);
       }
     })();
+    
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+      if (event === "TOKEN_REFRESH_FAILED") {
+        console.warn("TOKEN_REFRESH_FAILED");
+        return;
+      }
+    
       setSession(nextSession ?? null);
-      await fetchProfile(nextSession?.user?.id);
+      try {
+        await fetchProfile(nextSession?.user?.id);
+      } catch (e) {
+        console.warn("fetchProfile failed:", e);
+      }
     });
 
     return () => {
@@ -55,6 +81,52 @@ export function AuthProvider({ children }) {
       listener?.subscription?.unsubscribe();
     };
   }, [fetchProfile]);
+
+  useEffect(() => {
+    let ignore = false;
+  
+    const refreshOnResume = async () => {
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (ignore) return;
+        if (error) throw error;
+  
+        if (data?.session) {
+          setSession(data.session);
+          try {
+            await fetchProfile(data.session.user?.id);
+          } catch (e) {
+            console.warn("fetchProfile failed:", e);
+          }
+        }
+      } catch (e) {
+        console.warn("refreshSession failed:", e);
+      }
+    };
+  
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") refreshOnResume();
+    });
+  
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshOnResume();
+    };
+  
+    if (typeof window !== "undefined" && typeof document !== "undefined") {
+      window.addEventListener("focus", refreshOnResume);
+      document.addEventListener("visibilitychange", onVisible);
+    }
+  
+    return () => {
+      ignore = true;
+      sub.remove();
+      if (typeof window !== "undefined" && typeof document !== "undefined") {
+        window.removeEventListener("focus", refreshOnResume);
+        document.removeEventListener("visibilitychange", onVisible);
+      }
+    };
+  }, [fetchProfile]);
+  
 
   useEffect(() => {
     let ignore = false;

@@ -4,7 +4,7 @@ import { colors } from "../../assets/styles";
 export const InputBoxStyles = StyleSheet.create({
     container: {
         backgroundColor: "white",
-        borderWidth: 2,
+        borderWidth: 1,
         borderColor: colors.brightOutline,
         paddingVertical: 8,
         paddingHorizontal:16,

@@ -226,11 +226,11 @@ export default function Team() {
         {!!membersError && <Text style={{ color: colors.red, marginBottom: 8 }}>{membersError}</Text>}
 
         {!warehouseId ? (
-          <Text style={{ color: colors.greyText }}>No warehouse selected.</Text>
-        ) : loadingMembers ? (
-          <Text style={{ color: colors.greyText }}>Loading team...</Text>
+          <Text style={{ color: colors.greyText,  alignSelf:"center" }}>No warehouse selected.</Text>
+        ) : loadingMembers && members.length === 0 ? (
+          <Text style={{ color: colors.greyText, alignSelf:"center" }}>Loading team...</Text>
         ) : filteredMembers.length === 0 ? (
-          <Text style={{ color: colors.greyText }}>No members found.</Text>
+          <Text style={{ color: colors.greyText, alignSelf:"center" }}>No members found.</Text>
         ) : (
           filteredMembers.map((m) => (
             <View key={m.user_id}>

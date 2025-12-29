@@ -142,6 +142,7 @@ const mainLayoutStyles = StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         zIndex: 50,
+        backgroundColor: "rgba(0,0,0,0.9)",
     },
     panel: {
         height: "100%",

@@ -1,9 +1,11 @@
 import { View, Text, Modal, Pressable, StyleSheet } from "react-native";
 import { useEffect, useMemo, useState } from "react";
-import { DatePickerModal } from "react-native-paper-dates";
+import { DatePickerModal, en, registerTranslation } from "react-native-paper-dates";
 
 import { colors } from "../../../../../../../../assets/styles";
 import FooterTextButton from "../../../../../../../../components/FooterTextButton";
+
+registerTranslation("en", en);
 
 export default function DateFilter({
   visible,
@@ -67,7 +69,7 @@ export default function DateFilter({
 
           {/* Paper Dates range picker (cross-platform) */}
           <DatePickerModal
-            locale="en" // change if you want, e.g. "en-GB"
+
             mode="range"
             visible={pickerOpen}
             startDate={startDate ?? undefined}

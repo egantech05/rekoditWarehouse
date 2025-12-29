@@ -16,6 +16,20 @@ import QRTab from "./components/QRTab";
 
 import {colors} from "../../../../assets/styles"
 
+const toDraftProperties = (properties) =>
+  properties && typeof properties === "object"
+    ? Object.fromEntries(Object.entries(properties).map(([k, v]) => [k, v == null ? "" : String(v)]))
+    : {};
+
+const toPropertiesPayload = (draftProperties) => {
+  const nextProperties = {};
+  for (const [k, v] of Object.entries(draftProperties ?? {})) {
+    const trimmed = String(v ?? "").trim();
+    nextProperties[k] = trimmed ? trimmed : null;
+  }
+  return nextProperties;
+};
+
 export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onRemoveItem, onUpdateItemInfo, canRemove = false }) {
     const [selectedTab, setSelectedTab] = useState("info");
     const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -52,13 +66,7 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
       setShowHistoryDateFilter(false);
       setHistoryStartDate(null);
       setHistoryEndDate(null);
-      setDraftProperties(
-        item?.properties && typeof item.properties === "object"
-          ? Object.fromEntries(
-              Object.entries(item.properties).map(([k, v]) => [k, v == null ? "" : String(v)])
-            )
-          : {}
-      );
+      setDraftProperties(toDraftProperties(item?.properties));
     }, [visible, item?.id]);
 
     const firstPropertyValue =
@@ -111,11 +119,7 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
 
                     if (!item?.id || actionLoading) return;
 
-                    const nextProperties = {};
-                    for (const [k, v] of Object.entries(draftProperties ?? {})) {
-                      const trimmed = String(v ?? "").trim();
-                      nextProperties[k] = trimmed ? trimmed : null;
-                    }
+                    const nextProperties = toPropertiesPayload(draftProperties);
 
                     setActionError("");
                     setActionLoading(true);
@@ -223,6 +227,7 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
         />
 
         <DateFilter
+          locale="en"
           visible={showHistoryDateFilter}
           onClose={() => setShowHistoryDateFilter(false)}
           startDate={historyStartDate}
