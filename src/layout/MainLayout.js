@@ -13,7 +13,6 @@ import NavBar from "../components/NavBar";
 import WarehouseSelection from "../components/WarehouseSelection";
 import StatusBar from "../components/StatusBar"
 import PageTitle from "../components/PageTitle";
-import { colors } from "../assets/styles";
 
 
 export default function MainLayout({ routeName, onLogout }) {
@@ -28,7 +27,8 @@ export default function MainLayout({ routeName, onLogout }) {
 
     const [panel, setPanel] = useState(null);
 
-    const { user, warehouseSelection, warehouseSelectionLoaded, setWarehouseSelection } = useAuth();
+    const { user, warehouseSelection, warehouseSelectionLoaded, setWarehouseSelection, bumpRefresh } = useAuth();
+    
     const [warehouseConnected, setWarehouseConnected] = useState(true);
     const [warehouseName, setWarehouseName] = useState("");
     
@@ -92,9 +92,12 @@ export default function MainLayout({ routeName, onLogout }) {
 
     const handleWarehousePress = () => {
         setPanel("warehouse");
-    };
-
-    const closePanels = () => setPanel(null);
+      };
+      
+      const closePanels = () => {
+        setPanel(null);
+      };
+      
 
     return (
         <SafeAreaView style={mainStyles.container} edges={["top", "left", "right"]}>

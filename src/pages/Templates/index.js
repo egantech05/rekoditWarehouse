@@ -1,6 +1,5 @@
 import { View, ScrollView, Text } from "react-native";
-import React, { useState, useEffect, useMemo } from "react";
-
+import React, { useState, useMemo } from "react";
 import { TemplateStyles } from "./styles";
 
 import TemplateDisplayCard from "./components/TemplateDisplayCard"
@@ -12,7 +11,7 @@ import ViewTemplate from "./components/ViewTemplate";
 import { useAuth } from "../../auth/AuthContext";
 import { colors } from "../../assets/styles";
 
-import { fetchTemplates, createTemplate, updateTemplate, deleteTemplate } from "../../lib/api/templates";
+import {  createTemplate, updateTemplate, deleteTemplate } from "../../lib/api/templates";
 import { filterBySearch, buildSearchHaystack } from "../../lib/search";
 
 
@@ -20,19 +19,12 @@ export default function Templates() {
   const [showNewTemplate, setShowNewTemplate] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
 
-  const { user, warehouseSelection, warehouseSelectionLoaded } = useAuth();
-
-
-  const [warehouseId, setWarehouseId] = useState(null);
-  const [loadingWarehouse, setLoadingWarehouse] = useState(false);
-
-  const [templates, setTemplates] = useState([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const { currentWarehouse, templates, templatesLoading, warehousesLoading, isAdmin, setTemplates, reloadCurrentWarehouseData } = useAuth();
+  const warehouseId = currentWarehouse?.id ?? null;
 
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  const [isAdmin, setIsAdmin] = useState(false);
 
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
@@ -46,67 +38,9 @@ const filteredTemplates = useMemo(
   [templates, searchText]
 );
 
-useEffect(() => {
-  if (!warehouseSelectionLoaded) {
-    setLoadingWarehouse(true);
-    return;
-  }
 
-  setWarehouseId(warehouseSelection?.id ?? null);
-  setLoadingWarehouse(false);
-}, [warehouseSelectionLoaded, warehouseSelection?.id]);
 
-  useEffect(() => {
-    let ignore = false;
-  
-    const loadTemplates = async () => {
-      if (!warehouseId) {
-        setTemplates([]);
-        return;
-      }
-  
-      setLoadingTemplates(true);
-      try {
-        const data = await fetchTemplates({ warehouseId });
-        if (ignore) return;
-        setTemplates(data ?? []);
-      } catch (e) {
-        console.warn("loadTemplates failed:", e);
-        if (!ignore) setTemplates([]);
-      } finally {
-        if (!ignore) setLoadingTemplates(false);
-      }
-    };
-  
-    loadTemplates();
-    return () => {
-      ignore = true;
-    };
-  }, [warehouseId]);
 
-  useEffect(() => {
-    let ignore = false;
-  
-    const loadWarehouseRole = async () => {
-      if (!user?.id || !warehouseId) {
-        setIsAdmin(false);
-        return;
-      }
-  
-      try {
-        const role = await fetchWarehouseRole({ warehouseId, userId: user.id });
-        if (ignore) return;
-        setIsAdmin(role === "admin");
-      } catch (e) {
-        if (!ignore) setIsAdmin(false);
-      }
-    };
-  
-    loadWarehouseRole();
-    return () => {
-      ignore = true;
-    };
-  }, [user?.id, warehouseId]);
 
   const onCreateTemplate = async (name, properties) => {
     setCreateError("");
@@ -127,9 +61,7 @@ useEffect(() => {
       await createTemplate({ warehouseId, name: trimmed, properties });
 
       setShowNewTemplate(false);
-      
-      const data = await fetchTemplates({ warehouseId });
-      setTemplates(data ?? []);
+      await reloadCurrentWarehouseData();
     } catch (e) {
       setCreateError(e?.message ?? "Failed to create template.");
     } finally {
@@ -202,17 +134,17 @@ useEffect(() => {
           setCreateError("");
           setShowNewTemplate(true);
         }}
-        disabled={!warehouseId || loadingWarehouse}
+        disabled={!warehouseId || warehousesLoading}
       />
       <ScrollView
         contentContainerStyle={TemplateStyles.scroll}
         showsVerticalScrollIndicator={false}
       >
-      {!warehouseId && !loadingWarehouse ? (
+      {!warehouseId && !warehousesLoading ? (
         <Text style={{ width: "100%", textAlign: "center", color: colors.greyText, paddingTop: 24 }}>
           No warehouse connected.
         </Text>
-     ) : loadingTemplates && templates.length === 0 ? (
+     ) : templatesLoading && templates.length === 0 ? (
         <Text style={{ width: "100%", textAlign: "center", color: colors.greyText, paddingTop: 24 }}>
           Loading templates...
         </Text>

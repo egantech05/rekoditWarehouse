@@ -10,6 +10,9 @@ import InfoBox from "../../../../components/InfoBox"
 import InputBox from "../../../../components/InputBox";
 import AddProperty from "../NewTemplateCard/AddProperty";
 
+import { supabase } from "../../../../lib/supabase";
+
+
 export default function ViewTemplate({visible, onClose, template, isAdmin, onUpdate, onDelete, loading, error}){
 
     const [isEditing, setIsEditing] = useState(false);
@@ -17,16 +20,29 @@ export default function ViewTemplate({visible, onClose, template, isAdmin, onUpd
     const [properties, setProperties] = useState([""]);
 
     useEffect(() => {
-    if (!visible) {
-        setIsEditing(false);
-        return;
-    }
+        if (!visible) {
+            setIsEditing(false);
+            return;
+        }
+    
+        let ignore = false;
+    
+        supabase.auth.refreshSession().catch((e) => {
+            if (!ignore) console.warn("refreshSession failed:", e);
+        });
+    
 
     setIsEditing(false);
     setName(template?.name ?? "");
 
     const nextProps = Array.isArray(template?.properties) ? template.properties : [];
     setProperties(nextProps.length ? nextProps : [""]);
+
+    return () => {
+        ignore = true;
+    };
+
+
     }, [visible, template?.id]);
 
     const addProperty = () => setProperties((p) => [...p, ""]);

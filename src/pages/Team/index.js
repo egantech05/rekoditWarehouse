@@ -1,5 +1,7 @@
 import { View, Text, ScrollView } from "react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
+
+
 
 import { TeamStyles } from "./styles";
 import TeamMember from "./components/TeamMember"
@@ -14,13 +16,10 @@ import { colors } from "../../assets/styles";
 
 export default function Team() {
 
-  const { user, warehouseSelection } = useAuth();
-  const warehouseId = warehouseSelection?.id ?? null;
+  const { user, currentWarehouse, teamMembers, teamMembersLoading, teamMembersError, isAdmin, setTeamMembers, reloadCurrentWarehouseData } = useAuth();
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const warehouseId = currentWarehouse?.id ?? null;
 
-  const [members, setMembers] = useState([]);
-  const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState("");
 
   const [searchText, setSearchText] = useState("");
@@ -33,102 +32,21 @@ export default function Team() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState("");
 
-  useEffect(() => {
-    let ignore = false;
 
-    const loadWarehouseRole = async () => {
-      if (!user?.id || !warehouseId) {
-        setIsAdmin(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from("warehouse_members")
-          .select("role")
-          .eq("warehouse_id", warehouseId)
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (ignore) return;
-        if (error) throw error;
-
-        setIsAdmin(data?.role === "admin");
-      } catch (e) {
-        if (!ignore) setIsAdmin(false);
-      }
-    };
-
-    loadWarehouseRole();
-    return () => {
-      ignore = true;
-    };
-  }, [user?.id, warehouseId]);
-
-  const loadMembers = useCallback(async () => {
-    if (!warehouseId) {
-      setMembers([]);
-      setMembersError("");
-      return;
-    }
-
-    setLoadingMembers(true);
-    setMembersError("");
-    try {
-      const { data: memberRows, error } = await supabase
-        .from("warehouse_members")
-        .select("user_id, role")
-        .eq("warehouse_id", warehouseId);
-
-      if (error) throw error;
-
-      const rows = (memberRows ?? []).filter((r) => r?.user_id && r.user_id !== user?.id);
-      const userIds = [...new Set(rows.map((r) => r?.user_id).filter(Boolean))];
-
-      let profilesById = {};
-      if (userIds.length) {
-        const { data: profiles, error: profileError } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, email")
-          .in("user_id", userIds);
-
-        if (!profileError) {
-          profilesById = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p]));
-        }
-      }
-
-      setMembers(
-        rows.map((m) => ({
-          ...m,
-          full_name: profilesById[m.user_id]?.full_name ?? "",
-          email: profilesById[m.user_id]?.email ?? "",
-        }))
-      );
-    } catch (e) {
-      console.warn("loadMembers failed:", e);
-      setMembersError(e?.message ?? "Failed to load team.");
-      setMembers([]);
-    } finally {
-      setLoadingMembers(false);
-    }
-  }, [warehouseId, user?.id]);
-
-  useEffect(() => {
-    loadMembers();
-  }, [loadMembers]);
 
   const normalizedSearch = searchText.trim().toLowerCase();
-  const filteredMembers = useMemo(() => {
-    if (!normalizedSearch) return members;
 
-    return members.filter((m) => {
+  const filteredMembers = useMemo(() => {
+    if (!normalizedSearch) return teamMembers;
+
+    return teamMembers.filter((m) => {
       const name = String(m?.full_name ?? "").toLowerCase();
       const role = String(m?.role ?? "").toLowerCase();
       const email = String(m?.email ?? "").toLowerCase();
       return name.includes(normalizedSearch) || email.includes(normalizedSearch) || role.includes(normalizedSearch);
-      
     });
-  }, [members, normalizedSearch]);
+  }, [teamMembers, normalizedSearch]);
+
 
   const onToggleMemberRole = async (member) => {
     if (!isAdmin || !warehouseId || !member?.user_id) return;
@@ -147,7 +65,7 @@ export default function Team() {
 
       if (error) throw error;
 
-      setMembers((prev) =>
+      setTeamMembers((prev) =>
         prev.map((m) => (m.user_id === member.user_id ? { ...m, role: nextRole } : m))
       );
 
@@ -177,7 +95,7 @@ export default function Team() {
 
       if (error) throw error;
 
-      setMembers((prev) => prev.filter((m) => m.user_id !== member.user_id));
+      setTeamMembers((prev) => prev.filter((m) => m.user_id !== member.user_id));
       setEditingMemberId(null);
     } catch (e) {
       setMembersError(e?.message ?? "Failed to remove member.");
@@ -210,7 +128,7 @@ export default function Team() {
   
       setShowAddMember(false);
       setInviteEmail("");
-      await loadMembers();
+      await reloadCurrentWarehouseData();
     } catch (e) {
       setInviteError(e?.message ?? "Failed to add member.");
     } finally {
@@ -223,11 +141,13 @@ export default function Team() {
     <SearchBar value={searchText} onChangeText={setSearchText} placeholder="Search" />
     {isAdmin ? <AddCard onPress={() => setShowAddMember(true)} disabled={!warehouseId} /> : null}
       <ScrollView style={TeamStyles.scroll} showsVerticalScrollIndicator={false}>
-        {!!membersError && <Text style={{ color: colors.red, marginBottom: 8 }}>{membersError}</Text>}
+        {!!(membersError || teamMembersError) && (
+          <Text style={{ color: colors.red, marginBottom: 8 }}>{membersError || teamMembersError}</Text>
+        )}
 
         {!warehouseId ? (
           <Text style={{ color: colors.greyText,  alignSelf:"center" }}>No warehouse selected.</Text>
-        ) : loadingMembers && members.length === 0 ? (
+        ) : teamMembersLoading && teamMembers.length === 0 ? (
           <Text style={{ color: colors.greyText, alignSelf:"center" }}>Loading team...</Text>
         ) : filteredMembers.length === 0 ? (
           <Text style={{ color: colors.greyText, alignSelf:"center" }}>No members found.</Text>

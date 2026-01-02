@@ -16,6 +16,9 @@ import QRTab from "./components/QRTab";
 
 import {colors} from "../../../../assets/styles"
 
+import { supabase } from "../../../../lib/supabase";
+
+
 const toDraftProperties = (properties) =>
   properties && typeof properties === "object"
     ? Object.fromEntries(Object.entries(properties).map(([k, v]) => [k, v == null ? "" : String(v)]))
@@ -68,6 +71,25 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
       setHistoryEndDate(null);
       setDraftProperties(toDraftProperties(item?.properties));
     }, [visible, item?.id]);
+
+    useEffect(() => {
+      if (!visible) return;
+      let ignore = false;
+
+      const refreshSession = async () => {
+        try {
+          await supabase.auth.refreshSession();
+        } catch (e) {
+          if (!ignore) setActionError(e?.message ?? "Failed to refresh session.");
+        }
+      };
+
+      refreshSession();
+      return () => {
+        ignore = true;
+      };
+    }, [visible]);
+
 
     const firstPropertyValue =
       item?.properties && typeof item.properties === "object"

@@ -1,5 +1,6 @@
 import { View, ScrollView, Text, Pressable } from "react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+
 
 import { HomeStyles } from "./styles";
 
@@ -8,32 +9,27 @@ import AddCard from "../../components/AddCard";
 import ItemDisplayCard from "./components/ItemDisplayCard";
 import SearchBar from "../../components/SearchBar";
 import ViewItem from "./components/ViewItem";
-
 import SmallModal from "../../components/SmallModal";
-import { useAuth } from "../../auth/AuthContext";
 
-import { fetchWarehouses, createWarehouse, fetchWarehouseRole } from "../../lib/api/warehouses";
-import { fetchItems, adjustItemQuantity, updateItemProperties, deleteItem } from "../../lib/api/items";
-import { warehouseHasTemplates } from "../../lib/api/templates";
+import { useAuth } from "../../auth/AuthContext";
+import { createWarehouse } from "../../lib/api/warehouses";
+import { adjustItemQuantity, updateItemProperties, deleteItem } from "../../lib/api/items";
+
 import { filterBySearch, buildSearchHaystack } from "../../lib/search";
 
 
 export default function Home() {
 
-  const { user, warehouseSelection, warehouseSelectionLoaded } = useAuth();
+  const { user, warehouses, warehousesLoading, items, itemsLoading, itemsError, templates, templatesLoading, currentWarehouse, isAdmin, reloadCurrentWarehouseData, reloadWarehouses, setItems } = useAuth();
 
 
-  const [isAdmin, setIsAdmin] = useState(false);
 
   const [showNewItem, setShowNewItem] = useState(false);
   const [showItem, setShowItem] = useState(false);
 
-  const [warehouses, setWarehouses] = useState(null);
-  const [loadingWarehouses, setLoadingWarehouses] = useState(false);
+
+
   
-  const [items, setItems] = useState([]);
-  const [loadingItems, setLoadingItems] = useState(false);
-  const [itemsError, setItemsError] = useState("");
   const [searchText, setSearchText] = useState("");
 
   const filteredItems = useMemo(
@@ -47,7 +43,9 @@ export default function Home() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  const [hasTemplatesForWarehouse, setHasTemplatesForWarehouse] = useState(null);
+  const hasNoWarehouses = !warehousesLoading && warehouses.length === 0;
+  const hasNoTemplatesForWarehouse = !templatesLoading && templates.length === 0;
+  
 
   const [selectedItemId, setSelectedItemId] = useState(null);
 
@@ -56,73 +54,9 @@ export default function Home() {
     [items, selectedItemId]
   );
 
-  const currentWarehouse = useMemo(() => {
-    if (!warehouseSelectionLoaded) return null;
-    if (!Array.isArray(warehouses) || warehouses.length === 0) return null
-    return warehouses.find((w) => w.id === warehouseSelection?.id) ?? warehouses[0]
-    }, [warehouses, warehouseSelection?.id])
 
-  useEffect(() => {
-    let ignore = false;
-  
-    const loadWarehouseRole = async () => {
-      if (!user?.id || !currentWarehouse?.id) {
-        setIsAdmin(false);
-        return;
-      }
-      
-      try {
-        const role = await fetchWarehouseRole({ warehouseId: currentWarehouse.id, userId: user.id });
-        if (ignore) return;
-        setIsAdmin(role === "admin");
-      } catch (e) {
-        if (!ignore) setIsAdmin(false);
-      }
-    };
-  
-    loadWarehouseRole();
-    return () => {
-      ignore = true;
-    };
-  }, [user?.id, currentWarehouse?.id]);
 
-  const loadWarehouses = useCallback(async () => {
-    if (!user?.id) {
-      setWarehouses(null);
-      return;
-    }
 
-    setLoadingWarehouses(true);
-    try {
-      const data = await fetchWarehouses();
-      setWarehouses(data ?? []);
-    } catch (e) {
-      console.warn("loadWarehouses failed:", e);
-      setWarehouses([]);
-    } finally {
-      setLoadingWarehouses(false);
-    }
-  }, [user?.id]);
-
-  const loadItems = useCallback(async (warehouseId) => {
-    if (!warehouseId) {
-      setItems([]);
-      return;
-    }
-
-    setLoadingItems(true);
-    setItemsError("");
-    try {
-      const data = await fetchItems({ warehouseId });
-      setItems(data ?? []);
-    } catch (e) {
-      console.warn("loadItems failed:", e);
-      setItemsError(e?.message ?? "Failed to load items.");
-      setItems([]);
-    } finally {
-      setLoadingItems(false);
-    }
-  }, []);
 
   const onUpdateItemQuantity = useCallback(async (itemId, deltaInput, note, prevQuantity, warehouseId) => {
 
@@ -166,42 +100,8 @@ export default function Home() {
   }, []);
 
 
-  const loadTemplatesForWarehouse = useCallback (async (warehouseId) => {
-    if (!warehouseId){
-      setHasTemplatesForWarehouse(null);
-      return;
-    }
 
-    setHasTemplatesForWarehouse(null);
 
-    try{
-      const hasAny = await warehouseHasTemplates({ warehouseId });
-      setHasTemplatesForWarehouse(hasAny);
-    } catch (e){
-      console.warn("loadTemplatesForWarehouse failed: ",e);
-      setHasTemplatesForWarehouse(null);
-    }
-    
-  },[]);
-
-  useEffect(() => {
-    loadWarehouses();
-  }, [loadWarehouses]);
-
-  useEffect(() => {
-    if (!currentWarehouse?.id) {
-      setItems([]);
-      return;
-    }
-    loadItems(currentWarehouse.id);
-  }, [currentWarehouse?.id, loadItems]);
-
-  useEffect(()=>{
-    loadTemplatesForWarehouse(currentWarehouse?.id);
-  },[currentWarehouse?.id,loadTemplatesForWarehouse]);
-
-  const hasNoWarehouses = warehouses != null && !loadingWarehouses && warehouses.length === 0;
-  const hasNoTemplatesForWarehouse = hasTemplatesForWarehouse === false;
 
   const onCreateWarehouse = async () => {
     setCreateError("");
@@ -217,7 +117,7 @@ export default function Home() {
       await createWarehouse({ name, createdBy: user.id });
 
       setShowCreateWarehouse(false);
-      await loadWarehouses();
+      await reloadWarehouses();
     } catch (e) {
       setCreateError(e?.message ?? "Failed to create warehouse.");
     } finally {
@@ -228,10 +128,10 @@ export default function Home() {
   return (
 
     <View style={HomeStyles.container}>
-      {loadingWarehouses && warehouses == null ? (
-        <View style={HomeStyles.emptyState}>
-          <Text style={HomeStyles.loadingText}>Loading...</Text>
-        </View>
+      {warehousesLoading && warehouses.length === 0 ? (
+          <View style={HomeStyles.emptyState}>
+            <Text style={HomeStyles.loadingText}>Loading warehouses...</Text>
+          </View>
       ) : hasNoWarehouses ? (
         <View style={HomeStyles.emptyState}>
           <Text style={HomeStyles.emptyTitle}>No warehouse connected.</Text>
@@ -252,10 +152,10 @@ export default function Home() {
           )}
 
           <ScrollView contentContainerStyle={HomeStyles.scroll} showsVerticalScrollIndicator={false}>
-          {loadingItems && items.length === 0 ? (
+             {itemsLoading && items.length === 0 ? (
               <Text style={HomeStyles.itemsEmptyText}>Loading items...</Text>
             ) : itemsError ? (
-              <Pressable onPress={() => currentWarehouse?.id && loadItems(currentWarehouse.id)}>
+              <Pressable onPress={() => reloadCurrentWarehouseData()}>
                 <Text style={HomeStyles.itemsEmptyText}>{itemsError}</Text>
                 <Text style={HomeStyles.itemsEmptyText}>Tap to retry</Text>
               </Pressable>
@@ -269,6 +169,7 @@ export default function Home() {
                   onPress={() => {
                     setSelectedItemId(item.id);
                     setShowItem(true);
+           
                   }}
                 />
               ))
@@ -279,9 +180,8 @@ export default function Home() {
             visible={showNewItem}
             warehouseId={currentWarehouse?.id}
             onClose={() => setShowNewItem(false)}
-            onCreated={() => {
-              if (currentWarehouse?.id) return loadItems(currentWarehouse.id);
-            }}
+            onCreated={() => reloadCurrentWarehouseData()}
+
           />
           <ViewItem
             visible={showItem}
@@ -293,6 +193,7 @@ export default function Home() {
             onClose={() => {
               setShowItem(false);
               setSelectedItemId(null);
+
             }}
           />
         </>

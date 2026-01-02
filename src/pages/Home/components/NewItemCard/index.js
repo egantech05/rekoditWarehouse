@@ -10,16 +10,14 @@ import Dropdown from "../../../../components/DropDown"
 import InputBox from "../../../../components/InputBox"
 
 import { useAuth } from "../../../../auth/AuthContext";
-import { fetchTemplatesForItemCreation } from "../../../../lib/api/templates";
 import { createItem } from "../../../../lib/api/items";
 
 
 export default function NewItemCard({ visible, onClose, warehouseId, onCreated }) {
 
-    const { user } = useAuth();
+    const { templates, templatesLoading } = useAuth();
 
-    const [templates, setTemplates] = useState([]);
-    const [templatesLoading, setTemplatesLoading] = useState(false);
+
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [showTemplateOptions, setShowTemplateOptions] = useState(false);
 
@@ -32,34 +30,8 @@ export default function NewItemCard({ visible, onClose, warehouseId, onCreated }
       if (!visible) {
         setShowTemplateOptions(false);
         setSelectedTemplate(null);
-        return;
       }
-  
-      let ignore = false;
-  
-      const loadTemplates = async () => {
-        if (!user?.id || !warehouseId) {
-          setTemplates([]);
-          return;
-        }
-  
-        setTemplatesLoading(true);
-        try {
-          const data = await fetchTemplatesForItemCreation({ warehouseId });
-          if (ignore) return;
-          setTemplates(data ?? []);
-        } catch (e) {
-            if (!ignore) setTemplates([]);
-        } finally {
-            if (!ignore) setTemplatesLoading(false);
-        }
-      };
-  
-      loadTemplates();
-      return () => {
-        ignore = true;
-      };
-    }, [visible, user?.id, warehouseId]);
+    }, [visible]);
   
     const onSelectTemplate = (template) => {
       setSelectedTemplate(template);

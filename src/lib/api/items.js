@@ -1,21 +1,14 @@
 import { supabase } from "../supabase";
 
-function withTimeout(promise, ms, label) {
-    let timeoutId;
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
-    });
-  
-    return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
-  }
+
 
 export async function fetchItems({ warehouseId }) {
   if (!warehouseId) return [];
-    const { data, error } = await withTimeout(
-        supabase.from("items").select("*, templates ( properties )").eq("warehouse_id", warehouseId),
-        15000,
-        "fetchItems"
-    );
+  const { data, error } = await supabase
+  .from("items")
+  .select("*, templates ( properties )")
+  .eq("warehouse_id", warehouseId);
+
 
   if (error) throw error;
   return data ?? [];
@@ -73,13 +66,12 @@ export async function adjustItemQuantity({ itemId, warehouseId, actorId, deltaIn
 }
 
 export async function updateItemProperties({ itemId, nextProperties }) {
-  const { data, error } = await supabase
+    const { data, error } = await supabase
     .from("items")
     .update({ properties: nextProperties })
     .eq("id", itemId)
     .select("*")
     .maybeSingle();
-
   if (error) throw error;
   return data ?? null;
 }

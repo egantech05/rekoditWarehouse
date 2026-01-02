@@ -1,21 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react";
 
 import { colors } from "../../assets/styles"
 import MenuBar from "../MenuBar"
 import SmallModal from "../SmallModal"
 
 import { useAuth } from "../../auth/AuthContext"
-import { fetchWarehouses, createWarehouse } from "../../lib/api/warehouses"
+import { createWarehouse } from "../../lib/api/warehouses";
 
 
 
 
 export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, onClose, selectedWarehouseId }) {
 
-    const { user } = useAuth()
+   const { user, warehouses, warehousesLoading, reloadWarehouses } = useAuth();
 
-    const [warehouses, setWarehouses] = useState([])
-    const [loadingWarehouses, setLoadingWarehouses] = useState(false)
+
+
+
 
     const [connectedWarehouseId, setConnectedWarehouseId] = useState(selectedWarehouseId ?? null)
 
@@ -24,29 +25,8 @@ export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, on
     const [createLoading, setCreateLoading] = useState(false)
     const [createError, setCreateError] = useState("")
 
-    const loadWarehouses = useCallback(async () => {
-        if (!user?.id) {
-            setWarehouses([])
-            return []
-        }
 
-        setLoadingWarehouses(true)
-        try {
-            const next = await fetchWarehouses()
-            setWarehouses(next)
-            return next
-        } catch (e) {
-            console.warn("loadWarehouses failed:", e)
-            setWarehouses([])
-            return []
-        } finally {
-            setLoadingWarehouses(false)
-        }
-    }, [user?.id])
 
-    useEffect(() => {
-        loadWarehouses()
-    }, [loadWarehouses])
 
     const connectedWarehouse = useMemo(() => {
         if (!warehouses.length) return null
@@ -68,7 +48,7 @@ export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, on
     }, [connectedWarehouseId, warehouses, onWarehouseSelect])
 
     const menuItems = useMemo(() => {
-        const currentLabel = connectedWarehouse?.name || (loadingWarehouses ? "Loading..." : "No other warehouse")
+        const currentLabel = connectedWarehouse?.name || (warehousesLoading ? "Loading..." : "No other warehouse")
         const rest = warehouses.filter((w) => w.id !== connectedWarehouse?.id)
 
         return [
@@ -96,7 +76,7 @@ export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, on
                 onPress: () => setShowCreateWarehouse(true),
             },
         ]
-    }, [connectedWarehouse, loadingWarehouses, warehouses, lastBarColor, onClose, onWarehouseSelect])
+    }, [connectedWarehouse, warehousesLoading, warehouses, lastBarColor, onClose, onWarehouseSelect])
 
     const onCreateWarehouse = async () => {
         setCreateError("")
@@ -114,7 +94,7 @@ export default function WarehouseSelection({ lastBarColor, onWarehouseSelect, on
             setShowCreateWarehouse(false)
             setWarehouseName("")
 
-            const next = await loadWarehouses()
+            const next = await reloadWarehouses()
             setConnectedWarehouseId(next?.[0]?.id ?? null)
         } catch (e) {
             setCreateError(e?.message ?? "Failed to create warehouse.")
