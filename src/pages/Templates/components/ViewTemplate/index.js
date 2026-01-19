@@ -10,7 +10,6 @@ import InfoBox from "../../../../components/InfoBox"
 import InputBox from "../../../../components/InputBox";
 import AddProperty from "../NewTemplateCard/AddProperty";
 
-import { supabase } from "../../../../lib/supabase";
 
 
 export default function ViewTemplate({visible, onClose, template, isAdmin, onUpdate, onDelete, loading, error}){
@@ -27,9 +26,6 @@ export default function ViewTemplate({visible, onClose, template, isAdmin, onUpd
     
         let ignore = false;
     
-        supabase.auth.refreshSession().catch((e) => {
-            if (!ignore) console.warn("refreshSession failed:", e);
-        });
     
 
     setIsEditing(false);

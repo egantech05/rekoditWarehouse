@@ -75,7 +75,7 @@ export default function NewItemCard({ visible, onClose, warehouseId, onCreated }
           try {
             await onCreated?.();
           } catch (e) {
-            console.warn("onCreated failed:", e);
+
           }
         } catch (e) {
           setCreateError(e?.message ?? "Failed to create item.");

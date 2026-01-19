@@ -1,67 +1,97 @@
-import { supabase } from "../supabase";
+import { refreshSessionOrThrow, restRequest, restFirst } from "../supabase";
 
 
 
 
-export async function fetchTemplates({ warehouseId }) {
-  if (!warehouseId) return [];
-  const { data, error } = await supabase
-    .from("templates")
-    .select("*")
-    .eq("warehouse_id", warehouseId);
-  if (error) throw error;
-  return data ?? [];
+
+
+export const TEMPLATES_PAGE_SIZE = 50;
+
+export async function fetchTemplatesPage({ warehouseId, from = 0, to = TEMPLATES_PAGE_SIZE - 1 }) {
+  if (!warehouseId) return { templates: [], nextFrom: from };
+  const limit = to - from + 1;
+
+  const data = await restRequest({
+    path: "templates",
+    params: {
+      select: "*",
+      warehouse_id: `eq.${warehouseId}`,
+      order: "id.asc",
+      limit: String(limit),
+      offset: String(from),
+    },
+  });
+
+  const templates = Array.isArray(data) ? data : [];
+  return { templates, nextFrom: from + templates.length };
 }
+
 
 
 
 export async function fetchTemplatesForItemCreation({ warehouseId }) {
   if (!warehouseId) return [];
-  const { data, error } = await supabase
-    .from("templates")
-    .select("*")
-    .eq("warehouse_id", warehouseId);
 
+  const data = await restRequest({
+    path: "templates",
+    params: {
+      select: "*",
+      warehouse_id: `eq.${warehouseId}`,
+    },
+  });
 
-  if (error) throw error;
-  return data ?? [];
+  return Array.isArray(data) ? data : [];
 }
+
 
 export async function warehouseHasTemplates({ warehouseId }) {
   if (!warehouseId) return null;
 
+  const data = await restRequest({
+    path: "templates",
+    params: {
+      select: "id",
+      warehouse_id: `eq.${warehouseId}`,
+      limit: "1",
+    },
+  });
 
-
-  const { data, error } = await supabase
-  .from("templates")
-  .select("id")
-  .eq("warehouse_id", warehouseId);
-
-
-  if (error) throw error;
-  return (data ?? []).length > 0;
+  return (Array.isArray(data) ? data : []).length > 0;
 }
 
+
 export async function createTemplate({ warehouseId, name, properties }) {
-  const { error } = await supabase.from("templates").insert({ name, warehouse_id: warehouseId, properties });
-  if (error) throw error;
+  await refreshSessionOrThrow();
+
+  await restRequest({
+    method: "POST",
+    path: "templates",
+    body: { name, warehouse_id: warehouseId, properties },
+  });
+
 }
 
 export async function updateTemplate({ templateId, name, properties }) {
+  await refreshSessionOrThrow();
 
-  const { data, error } = await supabase
-  .from("templates")
-  .update({ name, properties })
-  .eq("id", templateId)
-  .select("*")
-  .maybeSingle();
+  const rows = await restRequest({
+    method: "PATCH",
+    path: "templates",
+    params: { id: `eq.${templateId}`, select: "*" },
+    body: { name, properties },
+    preferReturn: true,
+  });
 
-
-  if (error) throw error;
-  return data ?? null;
+  return restFirst(rows);
 }
 
+
 export async function deleteTemplate({ templateId }) {
-  const { error } = await supabase.from("templates").delete().eq("id", templateId);
-  if (error) throw error;
+  await refreshSessionOrThrow();
+  await restRequest({
+    method: "DELETE",
+    path: "templates",
+    params: { id: `eq.${templateId}` },
+  });
+
 }

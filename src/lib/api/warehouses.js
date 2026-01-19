@@ -1,56 +1,59 @@
-import { supabase } from "../supabase";
+import { refreshSessionOrThrow, restRequest, restFirst } from "../supabase";
+
+
 
 const REQUEST_TIMEOUT_MS = 15000;
 
-function withTimeout(promise, ms, label) {
-  let timeoutId;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
-  });
 
-  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
-}
 
 export async function fetchWarehouses({ createdBy } = {}) {
-  let q = supabase.from("warehouses").select("id, name, created_at").order("created_at", { ascending: false });
-  if (createdBy) q = q.eq("created_by", createdBy);
+  const params = {
+    select: "id,name,created_at",
+    order: "created_at.desc",
+  };
+  if (createdBy) params.created_by = `eq.${createdBy}`;
 
-  const { data, error } = await withTimeout(q, REQUEST_TIMEOUT_MS, "fetchWarehouses");
-
-  if (error) throw error;
-  return data ?? [];
+  const data = await restRequest({ path: "warehouses", params });
+  return Array.isArray(data) ? data : [];
 }
 
+
+
 export async function createWarehouse({ name, createdBy }) {
-  const { error } = await supabase.from("warehouses").insert({ name, created_by: createdBy });
-  if (error) throw error;
+  await restRequest({
+    method: "POST",
+    path: "warehouses",
+    body: { name, created_by: createdBy },
+  });
+
 }
 
 export async function fetchWarehouseRole({ warehouseId, userId }) {
-  const { data, error } = await withTimeout(
-    supabase
-      .from("warehouse_members")
-      .select("role")
-      .eq("warehouse_id", warehouseId)
-      .eq("user_id", userId)
-      .maybeSingle(),
-    REQUEST_TIMEOUT_MS,
-    "fetchWarehouseRole"
-  );
+  const rows = await restRequest({
+    path: "warehouse_members",
+    params: {
+      select: "role",
+      warehouse_id: `eq.${warehouseId}`,
+      user_id: `eq.${userId}`,
+      limit: "1",
+    },
+  });
 
-  if (error) throw error;
-  return data?.role ?? null;
+  return restFirst(rows)?.role ?? null;
 }
+
 
 export async function fetchLatestWarehouseId() {
-  const { data, error } = await supabase
-    .from("warehouses")
-    .select("id, created_at")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const rows = await restRequest({
+    path: "warehouses",
+    params: {
+      select: "id,created_at",
+      order: "created_at.desc",
+      limit: "1",
+    },
+  });
 
-  if (error) throw error;
-  return data?.id ?? null;
+  return restFirst(rows)?.id ?? null;
 }
+
 

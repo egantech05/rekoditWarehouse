@@ -7,7 +7,8 @@ import AuthNavigator from "./src/components/navigation/AuthNavigator";
 import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 
 import { AppState } from "react-native";
-import { supabase } from "./src/lib/supabase";
+import { supabase, refreshSessionOrThrow } from "./src/lib/supabase";
+
 
 
 function AppNavigation() {
@@ -15,7 +16,11 @@ function AppNavigation() {
   const [routeName, setRouteName] = useState();
   const { isLoggedIn, logout } = useAuth();
 
-  const syncRoute = () => setRouteName(navigationRef.getCurrentRoute()?.name);
+  const syncRoute = () => {
+    setRouteName(navigationRef.getCurrentRoute()?.name);
+    refreshSessionOrThrow();
+  };
+
 
   return (
     <NavigationContainer ref={navigationRef} onReady={syncRoute} onStateChange={syncRoute}>
@@ -48,19 +53,7 @@ export default function App() {
   }, []);
   
 
-  useEffect(() => {
-    supabase.auth.startAutoRefresh();
-  
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") supabase.auth.startAutoRefresh();
-      else supabase.auth.stopAutoRefresh();
-    });
-  
-    return () => {
-      sub.remove();
-      supabase.auth.stopAutoRefresh();
-    };
-  }, []);
+
 
   return (
     <SafeAreaProvider>

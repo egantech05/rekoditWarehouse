@@ -1,5 +1,7 @@
 import { View,Text} from "react-native";
-import { useMemo, useState, useEffect } from "react";
+
+import { useMemo, useState, useEffect, useRef } from "react";
+import { fetchItemDetail } from "../../../../lib/api/items";
 
 import { ViewItemStyles } from "./styles";
 import ViewModal from "../../../../components/ViewModal"
@@ -16,7 +18,6 @@ import QRTab from "./components/QRTab";
 
 import {colors} from "../../../../assets/styles"
 
-import { supabase } from "../../../../lib/supabase";
 
 
 const toDraftProperties = (properties) =>
@@ -51,12 +52,47 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
     const [historyStartDate, setHistoryStartDate] = useState(null);
     const [historyEndDate, setHistoryEndDate] = useState(null);
 
+    const [detailItem, setDetailItem] = useState(item ?? null);
+    const saveAbortRef = useRef(null);
+
+    useEffect(() => {
+      if (!item?.id) return;
+      setDetailItem((prev) => {
+        const merged = prev?.id === item.id ? { ...prev, ...item } : item;
+        if (prev?.templates && !merged?.templates) {
+          return { ...merged, templates: prev.templates };
+        }
+        return merged;
+      });
+    }, [item]);
+    
+
+    useEffect(() => {
+      if (!visible || !item?.id) return;
+      let ignore = false;
+
+      (async () => {
+        try {
+          const data = await fetchItemDetail({ itemId: item.id });
+          if (!ignore && data) {
+            setDetailItem((prev) => (prev?.id === item.id ? { ...prev, ...data } : data));
+          }
+
+        } catch (e) {}
+      })();
+
+      return () => {
+        ignore = true;
+      };
+    }, [visible, item?.id]);
+
+
 
     
 
 
     useEffect(() => {
-      if (!visible) return;
+      if (!visible || !item?.id) return;
       setSelectedTab("info");
       setDraftQuantity(0);
       setActionError("");
@@ -71,41 +107,26 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
       setHistoryEndDate(null);
       setDraftProperties(toDraftProperties(item?.properties));
     }, [visible, item?.id]);
-
-    useEffect(() => {
-      if (!visible) return;
-      let ignore = false;
-
-      const refreshSession = async () => {
-        try {
-          await supabase.auth.refreshSession();
-        } catch (e) {
-          if (!ignore) setActionError(e?.message ?? "Failed to refresh session.");
-        }
-      };
-
-      refreshSession();
-      return () => {
-        ignore = true;
-      };
-    }, [visible]);
+  
 
 
+
+    const activeItem = detailItem ?? item;
     const firstPropertyValue =
-      item?.properties && typeof item.properties === "object"
-        ? Object.values(item.properties).find((v) => v != null && String(v).trim() !== "")
+    activeItem?.properties && typeof activeItem.properties === "object"
+        ? Object.values(activeItem.properties).find((v) => v != null && String(v).trim() !== "")
         : null;
 
-    const modalTitle = firstPropertyValue ?? item?.name ?? "Inventory";
+    const modalTitle = firstPropertyValue ?? activeItem?.name ?? "Inventory";
 
     const footer =
       selectedTab === "info" ? (
         <QuantityEdit
           value={draftQuantity}
           onChange={setDraftQuantity}
-          disabled={!item?.id || actionLoading}
+          disabled={!activeItem?.id || actionLoading}
           onSubmit={() => {
-            if (!item?.id || actionLoading) return;
+            if (!activeItem?.id) return;
             setQtyNotesError("");
             setShowQtyConfirm(true);
           }}
@@ -127,33 +148,84 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
             {selectedTab === "info" && (
               <EditButtons
                 canRemove={canRemove}
-                disabled={!item?.id || actionLoading}
+                disabled={!activeItem?.id || actionLoading}
                 onRemove={() => {
-                  if (!canRemove || !item?.id || actionLoading) return;
+                  if (!canRemove || !activeItem?.id || actionLoading) return;
                   setShowDeleteConfirm(true);
                 }}
                 isEditing={isEditingInfo}
-                  onEdit={async () => {
-                    if (!isEditingInfo) {
-                      setIsEditingInfo(true);
-                      return;
+                onEdit={async () => {
+                  
+                  if (saveAbortRef.current) {
+                    console.log("[ViewItem][edit] abort previous save");
+                    saveAbortRef.current.abort();
+                    saveAbortRef.current = null;
+                  }
+                                    
+
+
+                  let controller = null;
+
+
+                  
+                  console.log("[ViewItem][edit] click", {
+                    isEditingInfo,
+                    actionLoading,
+                    activeItemId: activeItem?.id,
+                    visible,
+                  });
+                
+                  if (!isEditingInfo) {
+                    console.log("[ViewItem][edit] enter edit mode");
+                    setIsEditingInfo(true);
+                    return;
+                  }
+                
+                  if (!activeItem?.id) return;
+
+                
+                  const nextProperties = toPropertiesPayload(draftProperties);
+                  console.log("[ViewItem][edit] save start", {
+                    itemId: activeItem.id,
+                    keys: Object.keys(nextProperties ?? {}),
+                  });
+                
+                  setActionError("");
+                  setActionLoading(true);
+                  try {
+                    if (!onUpdateItemInfo) throw new Error("Update action not available.");
+                    controller = new AbortController();
+
+                    saveAbortRef.current = controller;
+                    await onUpdateItemInfo(activeItem.id, nextProperties, controller.signal);
+
+
+                    
+
+                    console.log("[ViewItem][edit] save ok");
+                    setDetailItem((prev) => {
+                      if (!activeItem?.id) return prev;
+                      const base = prev?.id === activeItem.id ? prev : activeItem;
+                      return base ? { ...base, properties: nextProperties } : prev;
+                    });
+                    setDraftProperties(toDraftProperties(nextProperties));
+                    setIsEditingInfo(false);
+
+                    
+                  } catch (e) {
+                    console.log("[ViewItem][edit] save error", e);
+                    setActionError(e?.message ?? "Failed to update item.");
+                  } finally {
+
+                    console.log("[ViewItem][edit] save done");
+                    if (saveAbortRef.current === controller) {
+                      saveAbortRef.current = null;
                     }
-
-                    if (!item?.id || actionLoading) return;
-
-                    const nextProperties = toPropertiesPayload(draftProperties);
-
-                    setActionError("");
-                    setActionLoading(true);
-                    try {
-                      await onUpdateItemInfo?.(item.id, nextProperties);
-                      setIsEditingInfo(false);
-                    } catch (e) {
-                      setActionError(e?.message ?? "Failed to update item.");
-                    } finally {
-                      setActionLoading(false);
-                    }
-                  }}
+                    
+                    setActionLoading(false);
+                  }
+                }}
+                
               />
             )}
         </View>
@@ -164,27 +236,29 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
           case "info":
             return (
               <InfoTab
-                item={item}
+                item={activeItem}
                 isEditing={isEditingInfo}
                 draftProperties={draftProperties}
                 setDraftProperties={setDraftProperties}
               />
             );
           case "history":
-            return <HistoryTab item={item} startDate={historyStartDate} endDate={historyEndDate} />;
+            return <HistoryTab item={activeItem} startDate={historyStartDate} endDate={historyEndDate} />;
           case "qr":
-            return <QRTab item={item} />;
+            return <QRTab item={activeItem} />;
           default:
             return (
               <InfoTab
-                item={item}
+                item={activeItem}
                 isEditing={isEditingInfo}
                 draftProperties={draftProperties}
                 setDraftProperties={setDraftProperties}
               />
             );
         }
-      }, [selectedTab, item, isEditingInfo, draftProperties, historyStartDate, historyEndDate]);
+      }, [selectedTab, activeItem, isEditingInfo, draftProperties, historyStartDate, historyEndDate]);
+
+
     
     return(
       <ViewModal visible={visible} onClose={onClose} title={modalTitle} tabs={tabs} footer={footer}>
@@ -225,11 +299,11 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
               setActionLoading(true);
               try {
                 await onUpdateQuantity?.(
-                  item.id,
+                  activeItem.id,
                   draftQuantity,
                   trimmed,
-                  item?.quantity ?? 0,
-                  item?.warehouse_id,
+                  activeItem?.quantity ?? 0,
+                  activeItem?.warehouse_id,
                   
                 );
                 setShowQtyConfirm(false);

@@ -1,24 +1,19 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+
+import { supabase, setCachedSession, refreshSessionOrThrow, restRequest, restFirst } from "../lib/supabase";
+
+
+
 import { AppState } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { fetchWarehouses, fetchWarehouseRole } from "../lib/api/warehouses";
-import { fetchItems } from "../lib/api/items";
-import { fetchTemplates } from "../lib/api/templates";
+import { fetchItemsPage, ITEMS_PAGE_SIZE } from "../lib/api/items";
+import { fetchTemplatesPage, TEMPLATES_PAGE_SIZE } from "../lib/api/templates";
+import { fetchTeamMembersPage, TEAM_MEMBERS_PAGE_SIZE } from "../lib/api/teamMembers";
 
 
-const REQUEST_TIMEOUT_MS = 15000;
-
-function withTimeout(promise, ms, label) {
-  let timeoutId;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
-}
 
 
 const AuthContext = createContext(null);
@@ -48,53 +43,29 @@ const [teamMembersError, setTeamMembersError] = useState("");
 
 const [currentWarehouseRole, setCurrentWarehouseRole] = useState(null);
 
+const initialWarehouseLoadDoneRef = useRef(false);
+const lastWarehouseIdRef = useRef(null);
+
+const refreshSessionInFlightRef = useRef(false);
+const lastRefreshAtRef = useRef(0);
+
+
+
+
 const currentWarehouse = useMemo(() => {
   if (!warehouseSelectionLoaded) return null;
   if (!Array.isArray(warehouses) || warehouses.length === 0) return null;
-  return warehouses.find((w) => w.id === warehouseSelection?.id) ?? warehouses[0];
+  return warehouses.find((w) => w.id === warehouseSelection?.id) ?? null;
+
 }, [warehouseSelectionLoaded, warehouses, warehouseSelection?.id]);
 
 const isAdmin = currentWarehouseRole === "admin";
 
-const fetchTeamMembers = useCallback(async (warehouseId, userId) => {
-  const { data: memberRows, error } = await withTimeout(
-    supabase
-      .from("warehouse_members")
-      .select("user_id, role")
-      .eq("warehouse_id", warehouseId),
-    REQUEST_TIMEOUT_MS,
-    "fetchTeamMembers"
-  );
 
-  if (error) throw error;
-
-  const rows = (memberRows ?? []).filter((r) => r?.user_id && r.user_id !== userId);
-  const userIds = [...new Set(rows.map((r) => r?.user_id).filter(Boolean))];
-
-  let profilesById = {};
-  if (userIds.length) {
-    const { data: profiles, error: profileError } = await withTimeout(
-      supabase
-        .from("profiles")
-        .select("user_id, full_name, email")
-        .in("user_id", userIds),
-      REQUEST_TIMEOUT_MS,
-      "fetchTeamMemberProfiles"
-    );
-
-    if (!profileError) {
-      profilesById = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p]));
-    }
-  }
-
-  return rows.map((m) => ({
-    ...m,
-    full_name: profilesById[m.user_id]?.full_name ?? "",
-    email: profilesById[m.user_id]?.email ?? "",
-  }));
-}, []);
 
 const loadWarehouses = useCallback(async () => {
+  console.log("[auth][warehouses] loadWarehouses", { userId: session?.user?.id ?? null });
+
   if (!session?.user?.id) {
     setWarehouses([]);
     setWarehousesLoading(false);
@@ -104,13 +75,20 @@ const loadWarehouses = useCallback(async () => {
   setWarehousesLoading(true);
   setWarehousesError("");
   try {
+
+    
+    console.log("[auth][warehouses] fetchWarehouses start");
     const data = await fetchWarehouses();
+    console.log("[auth][warehouses] fetchWarehouses done", { count: data?.length ?? 0 });
+
     const next = data ?? [];
     setWarehouses(next);
     return next;
   } catch (e) {
-    setWarehousesError(e?.message ?? "Failed to load warehouses.");
-    setWarehouses([]);
+
+    console.log("[auth][warehouses] fetchWarehouses error", { message: e?.message ?? String(e) });
+
+ 
     return [];
   } finally {
     setWarehousesLoading(false);
@@ -118,7 +96,7 @@ const loadWarehouses = useCallback(async () => {
 }, [session?.user?.id]);
 
 const loadCurrentWarehouseData = useCallback(
-  async (warehouseId, userId) => {
+  async (warehouseId, userId, { silent = false } = {}) => {
     if (!warehouseId || !userId) {
       setItems([]);
       setTemplates([]);
@@ -127,64 +105,107 @@ const loadCurrentWarehouseData = useCallback(
       setItemsLoading(false);
       setTemplatesLoading(false);
       setTeamMembersLoading(false);
+      initialWarehouseLoadDoneRef.current = false;
       return;
     }
 
-    setItemsLoading(true);
-    setTemplatesLoading(true);
-    setTeamMembersLoading(true);
-    setItemsError("");
-    setTemplatesError("");
-    setTeamMembersError("");
+    const shouldShowLoading = !silent || !initialWarehouseLoadDoneRef.current;
+    const shouldReportErrors = !silent || !initialWarehouseLoadDoneRef.current;
 
-    const [itemsResult, templatesResult, roleResult, membersResult] = await Promise.allSettled([
-      fetchItems({ warehouseId }),
-      fetchTemplates({ warehouseId }),
-      fetchWarehouseRole({ warehouseId, userId }),
-      fetchTeamMembers(warehouseId, userId),
-    ]);
-
-    if (itemsResult.status === "fulfilled") {
-      setItems(itemsResult.value ?? []);
-    } else {
-      setItemsError(itemsResult.reason?.message ?? "Failed to load items.");
-      setItems([]);
+    if (shouldShowLoading) {
+      setItemsLoading(true);
+      setTemplatesLoading(true);
+      setTeamMembersLoading(true);
+    }
+    if (shouldReportErrors) {
+      setItemsError("");
+      setTemplatesError("");
+      setTeamMembersError("");
     }
 
-    if (templatesResult.status === "fulfilled") {
-      setTemplates(templatesResult.value ?? []);
-    } else {
-      setTemplatesError(templatesResult.reason?.message ?? "Failed to load templates.");
-      setTemplates([]);
-    }
+    let pending = 4;
+    const markDone = () => {
+      pending -= 1;
+      if (pending === 0) {
+        initialWarehouseLoadDoneRef.current = true;
+      }
+    };
 
-    if (roleResult.status === "fulfilled") {
-      setCurrentWarehouseRole(roleResult.value ?? null);
-    } else {
-      setCurrentWarehouseRole(null);
-    }
+    const loadItems = async () => {
+      try {
+        const result = await fetchItemsPage({ warehouseId, from: 0, to: ITEMS_PAGE_SIZE - 1 });
+        setItems(result?.items ?? []);
+      } catch (e) {
+        if (shouldReportErrors) {
+          setItemsError(e?.message ?? "Failed to load items.");
+          setItems([]);
+        }
+      } finally {
+        if (shouldShowLoading) setItemsLoading(false);
+        markDone();
+      }
+    };
 
-    if (membersResult.status === "fulfilled") {
-      setTeamMembers(membersResult.value ?? []);
-    } else {
-      setTeamMembersError(membersResult.reason?.message ?? "Failed to load team.");
-      setTeamMembers([]);
-    }
+    const loadTemplates = async () => {
+      try {
+        const result = await fetchTemplatesPage({ warehouseId, from: 0, to: TEMPLATES_PAGE_SIZE - 1 });
+        setTemplates(result?.templates ?? []);
+      } catch (e) {
+        if (shouldReportErrors) {
+          setTemplatesError(e?.message ?? "Failed to load templates.");
+          setTemplates([]);
+        }
+      } finally {
+        if (shouldShowLoading) setTemplatesLoading(false);
+        markDone();
+      }
+    };
 
-    setItemsLoading(false);
-    setTemplatesLoading(false);
-    setTeamMembersLoading(false);
+    const loadRole = async () => {
+      try {
+        const role = await fetchWarehouseRole({ warehouseId, userId });
+        setCurrentWarehouseRole(role ?? null);
+      } catch (e) {
+        setCurrentWarehouseRole(null);
+      } finally {
+        markDone();
+      }
+    };
+
+    const loadMembers = async () => {
+      try {
+        const result = await fetchTeamMembersPage({ warehouseId, from: 0, to: TEAM_MEMBERS_PAGE_SIZE - 1 });
+        setTeamMembers(result?.members ?? []);
+      } catch (e) {
+        if (shouldReportErrors) {
+          setTeamMembersError(e?.message ?? "Failed to load team.");
+          setTeamMembers([]);
+        }
+      } finally {
+        if (shouldShowLoading) setTeamMembersLoading(false);
+        markDone();
+      }
+    };
+
+    loadItems();
+    loadTemplates();
+    loadRole();
+    loadMembers();
   },
-  [fetchTeamMembers]
+  []
 );
+
+
 
 const reloadWarehouses = useCallback(() => loadWarehouses(), [loadWarehouses]);
 
-const reloadCurrentWarehouseData = useCallback(() => {
-  if (!currentWarehouse?.id || !session?.user?.id) return Promise.resolve();
-  return loadCurrentWarehouseData(currentWarehouse.id, session.user.id);
-}, [currentWarehouse?.id, session?.user?.id, loadCurrentWarehouseData]);
-
+const reloadCurrentWarehouseData = useCallback(
+  (options = {}) => {
+    if (!currentWarehouse?.id || !session?.user?.id) return Promise.resolve();
+    return loadCurrentWarehouseData(currentWarehouse.id, session.user.id, options);
+  },
+  [currentWarehouse?.id, session?.user?.id, loadCurrentWarehouseData]
+);
 
 
   const fetchProfile = useCallback(async (userId) => {
@@ -195,101 +216,50 @@ const reloadCurrentWarehouseData = useCallback(() => {
 
 
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("user_id, full_name, created_at")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) throw error;
-    setProfile(data ?? null);
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-
-    (async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) console.warn("getSession error:", error);
-    
-        if (ignore) return;
-    
-        const nextSession = data?.session ?? null;
-        setSession(nextSession);
-    
-        try {
-          await fetchProfile(nextSession?.user?.id);
-        } catch (e) {
-          console.warn("fetchProfile failed:", e);
-        }
-      } catch (e) {
-        if (!ignore) {
-          console.warn("getSession failed:", e);
-          setSession(null);
-          setProfile(null);
-        }
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    })();
-    
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
-      if (event === "TOKEN_REFRESH_FAILED") {
-        console.warn("TOKEN_REFRESH_FAILED");
-        setSession(null);
-        setProfile(null);
-        try {
-          await supabase.auth.signOut({ scope: "local" });
-        } catch (e) {
-          console.warn("local signOut failed:", e);
-        }
-        return;
-      }
-      
-    
-      setSession(nextSession ?? null);
-      try {
-        await fetchProfile(nextSession?.user?.id);
-      } catch (e) {
-        console.warn("fetchProfile failed:", e);
-      }
+    const rows = await restRequest({
+      path: "profiles",
+      params: {
+        select: "user_id,full_name,created_at",
+        user_id: `eq.${userId}`,
+        limit: "1",
+      },
     });
 
-    return () => {
-      ignore = true;
-      listener?.subscription?.unsubscribe();
-    };
-  }, [fetchProfile]);
+    setProfile(restFirst(rows));
+
+  }, []);
 
   useEffect(() => {
     let ignore = false;
   
     const refreshOnResume = async () => {
+      const now = Date.now();
+      if (refreshSessionInFlightRef.current) return;
+      if (now - lastRefreshAtRef.current < 5000) return;
+  
+      lastRefreshAtRef.current = now;
+      refreshSessionInFlightRef.current = true;
+  
       try {
         const { data, error } = await supabase.auth.refreshSession();
+
+  
         if (ignore) return;
         if (error) throw error;
-    
+  
         if (data?.session) {
           setSession(data.session);
+          setCachedSession(data.session);
+
           try {
             await fetchProfile(data.session.user?.id);
-            await reloadWarehouses();
-            await reloadCurrentWarehouseData();
-          } catch (e) {
-            console.warn("fetchProfile failed:", e);
-          }
+          } catch (e) {}
         }
       } catch (e) {
-        console.warn("refreshSession failed:", e);
       } finally {
-
+        refreshSessionInFlightRef.current = false;
       }
     };
-    
   
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") refreshOnResume();
@@ -313,13 +283,77 @@ const reloadCurrentWarehouseData = useCallback(() => {
       }
     };
   }, [fetchProfile, reloadWarehouses, reloadCurrentWarehouseData]);
-
   
 
   useEffect(() => {
     let ignore = false;
   
+    (async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+  
+        if (ignore) return;
+        if (error) throw error;
+  
+        const nextSession = data?.session ?? null;
+        setSession(nextSession);
+        setCachedSession(nextSession);
+
+  
+        try {
+          await fetchProfile(nextSession?.user?.id);
+        } catch (e) {}
+      } catch (e) {
+        if (!ignore) {
+          setSession(null);
+          setCachedSession(null);
+
+          setProfile(null);
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    })();
+  
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+      if (event === "TOKEN_REFRESH_FAILED") {
+        setSession(null);
+        setCachedSession(null);
+
+        setProfile(null);
+        try {
+          await supabase.auth.signOut({ scope: "local" });
+        } catch (e) {}
+        return;
+      }
+  
+      setSession(nextSession ?? null);
+      setCachedSession(nextSession ?? null);
+
+      try {
+        await fetchProfile(nextSession?.user?.id);
+      } catch (e) {}
+    });
+  
+    return () => {
+      ignore = true;
+      listener?.subscription?.unsubscribe();
+    };
+  }, [fetchProfile]);
+  
+  useEffect(() => {
+    setCachedSession(session ?? null);
+  }, [session]);
+
+
+  useEffect(() => {
+    let ignore = false;
+  
     const loadWarehouseSelection = async () => {
+
+    
       setWarehouseSelectionLoaded(false);
   
       const userId = session?.user?.id;
@@ -346,6 +380,14 @@ const reloadCurrentWarehouseData = useCallback(() => {
     };
   }, [session?.user?.id]);
 
+
+
+  useEffect(() => {
+    refreshSessionOrThrow();
+  }, [warehouseSelection?.id]);
+
+
+
   useEffect(() => {
     if (!session?.user?.id) {
       setWarehouses([]);
@@ -363,27 +405,53 @@ const reloadCurrentWarehouseData = useCallback(() => {
     if (!warehouseSelectionLoaded) return;
   
     if (!warehouses.length) {
-      if (warehouseSelection?.id) setWarehouseSelection(null);
+      if (warehouseSelectionLoaded && !warehousesLoading) {
+        if (warehouseSelection?.id) setWarehouseSelection(null);
+      }
       return;
     }
   
     const selectedId = warehouseSelection?.id;
-    if (!selectedId || !warehouses.find((w) => w.id === selectedId)) {
-      setWarehouseSelection(warehouses[0]);
+    if (selectedId && !warehouses.find((w) => w.id === selectedId)) {
+      setWarehouseSelection(null);
     }
   }, [warehouseSelectionLoaded, warehouses, warehouseSelection?.id, setWarehouseSelection]);
   
+  
   useEffect(() => {
-    if (!currentWarehouse?.id || !session?.user?.id) {
+    const selectedId = warehouseSelection?.id ?? null;
+    const hasSelectedWarehouse = !!selectedId && warehouses.some((w) => w.id === selectedId);
+  
+    if (!selectedId || !session?.user?.id || !hasSelectedWarehouse) {
       setItems([]);
       setTemplates([]);
       setTeamMembers([]);
       setCurrentWarehouseRole(null);
+      setItemsLoading(false);
+      setTemplatesLoading(false);
+      setTeamMembersLoading(false);
+      lastWarehouseIdRef.current = null;
       return;
     }
   
-    loadCurrentWarehouseData(currentWarehouse.id, session.user.id);
-  }, [currentWarehouse?.id, session?.user?.id, loadCurrentWarehouseData]);
+    if (lastWarehouseIdRef.current && lastWarehouseIdRef.current !== selectedId) {
+      setItems([]);
+      setTemplates([]);
+      setTeamMembers([]);
+      setItemsError("");
+      setTemplatesError("");
+      setTeamMembersError("");
+      setItemsLoading(true);
+      setTemplatesLoading(true);
+      setTeamMembersLoading(true);
+      initialWarehouseLoadDoneRef.current = false;
+    }
+  
+    lastWarehouseIdRef.current = selectedId;
+    loadCurrentWarehouseData(selectedId, session.user.id);
+  }, [warehouseSelection?.id, warehouses, session?.user?.id, loadCurrentWarehouseData]);
+  
+  
   
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -415,41 +483,101 @@ const reloadCurrentWarehouseData = useCallback(() => {
   useEffect(() => {
     if (!currentWarehouse?.id || !session?.user?.id) return;
   
-    const reload = () => loadCurrentWarehouseData(currentWarehouse.id, session.user.id);
+    const handleItemChange = (payload) => {
+      const eventType = payload?.eventType;
+      if (eventType === "DELETE") {
+        const deletedId = payload?.old?.id;
+        if (!deletedId) return;
+        setItems((prev) => prev.filter((it) => it.id !== deletedId));
+        return;
+      }
+  
+      const next = payload?.new;
+      if (!next?.id) return;
+  
+      setItems((prev) => {
+        const idx = prev.findIndex((it) => it.id === next.id);
+        if (idx === -1) return [next, ...prev];
+        const updated = [...prev];
+        updated[idx] = { ...prev[idx], ...next };
+        return updated;
+      });
+    };
+  
+    const handleTemplateChange = (payload) => {
+      const eventType = payload?.eventType;
+      if (eventType === "DELETE") {
+        const deletedId = payload?.old?.id;
+        if (!deletedId) return;
+        setTemplates((prev) => prev.filter((t) => t.id !== deletedId));
+        return;
+      }
+  
+      const next = payload?.new;
+      if (!next?.id) return;
+  
+      setTemplates((prev) => {
+        const idx = prev.findIndex((t) => t.id === next.id);
+        if (idx === -1) return [next, ...prev];
+        const updated = [...prev];
+        updated[idx] = { ...prev[idx], ...next };
+        return updated;
+      });
+    };
+  
+    const handleMemberChange = (payload) => {
+      const eventType = payload?.eventType;
+      const next = payload?.new;
+      const prev = payload?.old;
+      const targetUserId = next?.user_id ?? prev?.user_id;
+  
+      if (targetUserId === session.user.id) {
+        if (eventType === "DELETE") setCurrentWarehouseRole(null);
+        if (next?.role) setCurrentWarehouseRole(next.role);
+      }
+  
+      if (eventType === "DELETE") {
+        if (!targetUserId) return;
+        setTeamMembers((prevMembers) => prevMembers.filter((m) => m.user_id !== targetUserId));
+        return;
+      }
+  
+      if (!next?.user_id) return;
+  
+      setTeamMembers((prevMembers) => {
+        const idx = prevMembers.findIndex((m) => m.user_id === next.user_id);
+        if (idx === -1) {
+          return [...prevMembers, { ...next, full_name: "", email: "" }];
+        }
+        const updated = [...prevMembers];
+        updated[idx] = { ...updated[idx], ...next };
+        return updated;
+      });
+    };
   
     const channel = supabase
       .channel(`realtime:warehouse:${currentWarehouse.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "items", filter: `warehouse_id=eq.${currentWarehouse.id}` },
-        reload
+        handleItemChange
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "templates", filter: `warehouse_id=eq.${currentWarehouse.id}` },
-        reload
+        handleTemplateChange
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "warehouse_members", filter: `warehouse_id=eq.${currentWarehouse.id}` },
-        reload
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "item_events", filter: `warehouse_id=eq.${currentWarehouse.id}` },
-        reload
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        reload
+        handleMemberChange
       )
       .subscribe();
   
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentWarehouse?.id, session?.user?.id, loadCurrentWarehouseData]);
+  }, [currentWarehouse?.id, session?.user?.id]);
   
   
   useEffect(() => {
@@ -471,8 +599,23 @@ const reloadCurrentWarehouseData = useCallback(() => {
   const signIn = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+  
+    const nextSession = data?.session ?? null;
+    setSession(nextSession);
+    setCachedSession(nextSession ?? null);
+
+  
+    if (nextSession?.user?.id) {
+      try {
+        await fetchProfile(nextSession.user.id);
+      } catch (e) {}
+    } else {
+      setProfile(null);
+    }
+  
     return data;
-  }, []);
+  }, [fetchProfile]);
+  
 
   const signUp = useCallback(async (fullName, email, password) => {
     const { data, error } = await supabase.auth.signUp({
@@ -485,10 +628,22 @@ const reloadCurrentWarehouseData = useCallback(() => {
   }, []);
 
   const logout = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  }, []);
+    setSession(null);
+    setCachedSession(null);
 
+    setProfile(null);
+    setWarehouseSelection(null);
+    setWarehouses([]);
+    setItems([]);
+    setTemplates([]);
+    setTeamMembers([]);
+    setCurrentWarehouseRole(null);
+  
+    try {
+      await supabase.auth.signOut({ scope: "global" });
+    } catch (e) {}
+  }, []);
+  
 
 
   const value = useMemo(

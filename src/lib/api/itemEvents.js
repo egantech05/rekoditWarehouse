@@ -1,10 +1,14 @@
-import { supabase } from "../supabase";
 
 
 
+export const ITEM_EVENTS_PAGE_SIZE = 50;
 
-export async function fetchItemEvents({ itemId, warehouseId, startISO, endISO }, accessToken) {
-  if (!itemId) return [];
+
+export async function fetchItemEvents(
+  { itemId, warehouseId, startISO, endISO, from = 0, to = ITEM_EVENTS_PAGE_SIZE - 1 },
+  accessToken
+) {
+  if (!itemId) return { events: [], nextFrom: from };
   if (!accessToken) throw new Error("Missing access token.");
 
   const params = new URLSearchParams();
@@ -14,7 +18,9 @@ export async function fetchItemEvents({ itemId, warehouseId, startISO, endISO },
   if (startISO) params.set("created_at", `gte.${startISO}`);
   if (endISO) params.append("created_at", `lte.${endISO}`);
   params.set("order", "created_at.desc");
-  params.set("limit", "50");
+  const limit = Math.max(0, to - from + 1);
+  params.set("limit", String(limit));
+  params.set("offset", String(from));
 
   const url = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/rest/v1/item_events?${params.toString()}`;
 
@@ -30,5 +36,6 @@ export async function fetchItemEvents({ itemId, warehouseId, startISO, endISO },
     throw new Error(`fetchItemEvents ${resp.status}`);
   }
 
-  return bodyText ? JSON.parse(bodyText) : [];
+  const events = bodyText ? JSON.parse(bodyText) : [];
+  return { events, nextFrom: from + events.length };
 }

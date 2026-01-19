@@ -1,6 +1,10 @@
-import { View, ScrollView, Text } from "react-native";
-import React, { useState, useMemo } from "react";
+import { View, ScrollView, Text, Pressable } from "react-native";
+
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+
 import { TemplateStyles } from "./styles";
+
+import { fetchTemplatesPage, TEMPLATES_PAGE_SIZE } from "../../lib/api/templates";
 
 import TemplateDisplayCard from "./components/TemplateDisplayCard"
 import SearchBar from "../../components/SearchBar"
@@ -33,6 +37,30 @@ export default function Templates() {
 
   const [searchText, setSearchText] = useState("");
 
+  const [templatesPaging, setTemplatesPaging] = useState(false);
+  const [templatesPagingError, setTemplatesPagingError] = useState("");
+  const [templatesNextFrom, setTemplatesNextFrom] = useState(0);
+  const [hasMoreTemplates, setHasMoreTemplates] = useState(true);
+  const templatesPagingInitRef = useRef(false);
+
+  useEffect(() => {
+    if (!warehouseId) {
+      templatesPagingInitRef.current = false;
+      setTemplatesNextFrom(0);
+      setHasMoreTemplates(false);
+      setTemplatesPagingError("");
+      return;
+    }
+
+    if (templatesLoading || templatesPagingInitRef.current) return;
+
+    const count = templates.length;
+    setTemplatesNextFrom(count);
+    setHasMoreTemplates(count === TEMPLATES_PAGE_SIZE);
+    templatesPagingInitRef.current = true;
+  }, [warehouseId, templatesLoading, templates.length]);
+
+
 const filteredTemplates = useMemo(
   () => filterBySearch(templates, searchText, (t) => buildSearchHaystack(t?.name, t?.properties)),
   [templates, searchText]
@@ -61,7 +89,7 @@ const filteredTemplates = useMemo(
       await createTemplate({ warehouseId, name: trimmed, properties });
 
       setShowNewTemplate(false);
-      await reloadCurrentWarehouseData();
+      await onReloadTemplates();
     } catch (e) {
       setCreateError(e?.message ?? "Failed to create template.");
     } finally {
@@ -125,6 +153,46 @@ const filteredTemplates = useMemo(
     }
   };
 
+  const onReloadTemplates = useCallback(() => {
+    templatesPagingInitRef.current = false;
+    setTemplatesNextFrom(0);
+    setHasMoreTemplates(true);
+    setTemplatesPagingError("");
+    return reloadCurrentWarehouseData();
+  }, [reloadCurrentWarehouseData]);
+
+  const onLoadMoreTemplates = useCallback(async () => {
+    if (!warehouseId || templatesLoading || templatesPaging || !hasMoreTemplates) return;
+
+    setTemplatesPaging(true);
+    setTemplatesPagingError("");
+    try {
+      const { templates: pageTemplates, nextFrom } = await fetchTemplatesPage({
+        warehouseId,
+        from: templatesNextFrom,
+        to: templatesNextFrom + TEMPLATES_PAGE_SIZE - 1,
+      });
+
+      setTemplates((prev) => {
+        const byId = new Map(prev.map((t) => [t.id, t]));
+        for (const row of pageTemplates ?? []) {
+          const existing = byId.get(row.id);
+          byId.set(row.id, existing ? { ...existing, ...row } : row);
+        }
+        return Array.from(byId.values());
+      });
+
+      const loadedCount = pageTemplates?.length ?? 0;
+      setTemplatesNextFrom(nextFrom ?? templatesNextFrom + loadedCount);
+      setHasMoreTemplates(loadedCount === TEMPLATES_PAGE_SIZE);
+    } catch (e) {
+      setTemplatesPagingError(e?.message ?? "Failed to load more templates.");
+    } finally {
+      setTemplatesPaging(false);
+    }
+  }, [warehouseId, templatesLoading, templatesPaging, hasMoreTemplates, templatesNextFrom, setTemplates]);
+
+
 
   return (
     <View style={TemplateStyles.container}>
@@ -170,6 +238,20 @@ const filteredTemplates = useMemo(
           />
         ))
       )}
+
+{hasMoreTemplates && !templatesLoading && filteredTemplates.length > 0 && (
+        <Pressable onPress={onLoadMoreTemplates} disabled={templatesPaging}>
+          <Text style={{ width: "100%", textAlign: "center", color: colors.greyText, paddingTop: 16 }}>
+            {templatesPaging ? "Loading more..." : "Load more"}
+          </Text>
+        </Pressable>
+      )}
+      {!!templatesPagingError && (
+        <Text style={{ width: "100%", textAlign: "center", color: colors.red, paddingTop: 8 }}>
+          {templatesPagingError}
+        </Text>
+      )}
+
       
       </ScrollView>
 

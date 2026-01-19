@@ -2,7 +2,7 @@
 ## Core Rules (Must Follow)
 
 1. **Ask for clarification**
-   - Always ask for clarification. Only provide the code once clarified
+   - Check the code for latest implementation. Ask further  for clarification if required. Only provide the code once clarified
    - offer different options if available and explain advantages and disadvantages of each options
 
 1. **Do not change my code directly**

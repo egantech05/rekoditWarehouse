@@ -5,7 +5,8 @@ import { useNavigationState } from "@react-navigation/native";
 import StackNavigator from "../components/navigation/StackNavigator";
 
 import { useAuth } from "../auth/AuthContext";
-import { supabase } from "../lib/supabase";
+import { supabase, restRequest, restFirst } from "../lib/supabase";
+
 
 import { mainStyles } from "../assets/styles";
 import Header from "./Header";
@@ -44,25 +45,25 @@ export default function MainLayout({ routeName, onLogout }) {
                 return;
             }
             
-            const { data, error } = await supabase
-                .from("warehouses")
-                .select("id, name, created_at")
-                .order("created_at", { ascending: false })
-                .limit(1);
-            
-            if (ignore) return;
-            
-            if (error) {
-                console.warn("loadWarehouses failed:", error);
+            let rows = null;
+            try {
+                rows = await restRequest({
+                    path: "warehouses",
+                    params: {
+                        select: "id,name,created_at",
+                        order: "created_at.desc",
+                        limit: "1",
+                    },
+                });
+            } catch (e) {
                 return;
             }
+
+            const latestWarehouse = restFirst(rows);
+
             
 
-            const latestWarehouse = (data ?? [])[0] ?? null;
-            if (warehouseSelectionLoaded && !warehouseSelection?.id && latestWarehouse) {
-                setWarehouseSelection(latestWarehouse);
-            }
-            
+
             setWarehouseConnected(!!latestWarehouse);
             setWarehouseName(warehouseSelection?.name ?? latestWarehouse?.name ?? "");
         };

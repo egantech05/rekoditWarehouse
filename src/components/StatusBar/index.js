@@ -4,7 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { statusBarStyles } from "./styles";
 import { useAuth } from "../../auth/AuthContext";
-import { supabase } from "../../lib/supabase";
+import { restRequest, restFirst } from "../../lib/supabase";
+
 
 
 export default function StatusBar({ warehouseName: warehouseNameProp }){
@@ -24,23 +25,24 @@ export default function StatusBar({ warehouseName: warehouseNameProp }){
                 setWarehouseName("");
                 return;
             }
+            let row = null;
+            try {
+                const rows = await restRequest({
+                    path: "warehouses",
+                    params: {
+                        select: "name,created_at",
+                        order: "created_at.desc",
+                        limit: "1",
+                    },
+                });
+                row = restFirst(rows);
+            } catch (e) {
+                setWarehouseName("");
+                return;
+            }
 
-            const {data,error} = await supabase
-                .from("warehouses")
-                .select("name, created_at")
-                .order("created_at",{ascending:false})
-                .limit(1)
-                .maybeSingle();
-            
-                if(ignore) return;
+            setWarehouseName(row?.name ?? "");
 
-                if(error){
-                    console.warn("loadWarehouseName failed:" , error);
-                    setWarehouseName("");
-                    return;
-                }
-
-                setWarehouseName(data?.name ?? "");
         };
 
         loadWarehouseName();

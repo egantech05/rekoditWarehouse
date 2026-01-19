@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
+
 
 import React, { useEffect, useRef, useState } from "react";
 import { colors } from "../../../../../../assets/styles";
@@ -6,7 +7,8 @@ import { colors } from "../../../../../../assets/styles";
 import { supabase } from "../../../../../../lib/supabase";
 import { useAuth } from "../../../../../../auth/AuthContext";
 import { fetchProfilesByUserIds } from "../../../../../../lib/api/profiles";
-import { fetchItemEvents } from "../../../../../../lib/api/itemEvents";
+import { fetchItemEvents, ITEM_EVENTS_PAGE_SIZE } from "../../../../../../lib/api/itemEvents";
+
 
 
 
@@ -37,6 +39,39 @@ export default function HistoryTab({ item, startDate, endDate }) {
   const { session } = useAuth();
   const [eventsLoading, setEventsLoading] = useState(false);
 
+  const [eventsPaging, setEventsPaging] = useState(false);
+  const [eventsPagingError, setEventsPagingError] = useState("");
+  const [eventsNextFrom, setEventsNextFrom] = useState(0);
+  const [hasMoreEvents, setHasMoreEvents] = useState(true);
+
+  const attachActorNames = async (rows, accessToken) => {
+    const actorIds = [...new Set(rows.map((r) => r?.actor_id).filter(Boolean))];
+    const missingIds = actorIds.filter((id) => !actorNameCacheRef.current.has(id));
+
+    if (missingIds.length) {
+      const url = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/rest/v1/profiles?select=user_id,full_name&user_id=in.(${missingIds.join(",")})`;
+      const resp = await fetch(url, {
+        headers: {
+          apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const bodyText = await resp.text();
+      if (!resp.ok) {
+        throw new Error(`profiles fetch ${resp.status}`);
+      }
+
+      const profiles = await fetchProfilesByUserIds(missingIds, accessToken);
+      for (const p of profiles) {
+        actorNameCacheRef.current.set(p.user_id, p.full_name);
+      }
+    }
+
+    return rows.map((r) => ({ ...r, actor_name: actorNameCacheRef.current.get(r.actor_id) ?? "" }));
+  };
+
+
 
 
 
@@ -52,6 +87,9 @@ export default function HistoryTab({ item, startDate, endDate }) {
         setEventsError("");
         setEvents([]);
         setEventsLoading(false);
+        setEventsNextFrom(0);
+        setHasMoreEvents(true);
+        setEventsPagingError("");
   
         return;
       }
@@ -84,15 +122,29 @@ export default function HistoryTab({ item, startDate, endDate }) {
           return;
         }
     
-        const rows = await fetchItemEvents(
+        const { events: rows, nextFrom } = await fetchItemEvents(
           {
             itemId: item.id,
             warehouseId: item?.warehouse_id,
             startISO,
             endISO,
+            from: 0,
+            to: ITEM_EVENTS_PAGE_SIZE - 1,
           },
           accessToken
         );
+
+        if (ignore) return;
+
+        const hydrated = await attachActorNames(rows, accessToken);
+        if (ignore) return;
+
+        setEventsError("");
+        setEvents(hydrated);
+        setEventsNextFrom(nextFrom ?? rows.length);
+        setHasMoreEvents(rows.length === ITEM_EVENTS_PAGE_SIZE);
+        setEventsPagingError("");
+
 
   
   
@@ -160,6 +212,60 @@ export default function HistoryTab({ item, startDate, endDate }) {
       ignore = true;
     };
   }, [item?.id, item?.warehouse_id, startDate, endDate]);
+
+  const onLoadMoreEvents = async () => {
+    if (eventsLoading || eventsPaging || !hasMoreEvents) return;
+
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setEventsPagingError("No access token.");
+      return;
+    }
+
+    const startISO = startDate
+      ? (() => {
+          const d = new Date(startDate);
+          d.setHours(0, 0, 0, 0);
+          return d.toISOString();
+        })()
+      : null;
+
+    const endISO = endDate
+      ? (() => {
+          const d = new Date(endDate);
+          d.setHours(23, 59, 59, 999);
+          return d.toISOString();
+        })()
+      : null;
+
+    setEventsPaging(true);
+    setEventsPagingError("");
+    try {
+      const { events: rows, nextFrom } = await fetchItemEvents(
+        {
+          itemId: item.id,
+          warehouseId: item?.warehouse_id,
+          startISO,
+          endISO,
+          from: eventsNextFrom,
+          to: eventsNextFrom + ITEM_EVENTS_PAGE_SIZE - 1,
+        },
+        accessToken
+      );
+
+      const hydrated = await attachActorNames(rows, accessToken);
+
+      setEvents((prev) => [...prev, ...hydrated]);
+      const loadedCount = rows?.length ?? 0;
+      setEventsNextFrom(nextFrom ?? eventsNextFrom + loadedCount);
+      setHasMoreEvents(loadedCount === ITEM_EVENTS_PAGE_SIZE);
+    } catch (e) {
+      setEventsPagingError(e?.message ?? "Failed to load more history.");
+    } finally {
+      setEventsPaging(false);
+    }
+  };
+
   
 
   return (
@@ -167,7 +273,7 @@ export default function HistoryTab({ item, startDate, endDate }) {
 
     {!!eventsError && <Text style={{ color: colors.red }}>{eventsError}</Text>}
     {eventsLoading ? (
-      <ActivityIndicator size="small" color={colors.brandHighlight} />
+      <ActivityIndicator size="small" color={colors.boldColor} />
     ) : events.length === 0 ? (
       <Text style={{ color: colors.greyText }}>No history yet.</Text>
     ) : null}
@@ -177,6 +283,16 @@ export default function HistoryTab({ item, startDate, endDate }) {
       events.map((ev) => (
         <LogDisplay key={ev.id} event={ev} />
       ))}
+
+{hasMoreEvents && !eventsLoading && events.length > 0 && (
+      <Pressable onPress={onLoadMoreEvents} disabled={eventsPaging}>
+        <Text style={{ color: colors.greyText }}>
+          {eventsPaging ? "Loading more..." : "Load more"}
+        </Text>
+      </Pressable>
+    )}
+    {!!eventsPagingError && <Text style={{ color: colors.red }}>{eventsPagingError}</Text>}
+
 
     </ScrollView>
   );

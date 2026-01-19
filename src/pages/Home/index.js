@@ -1,5 +1,6 @@
 import { View, ScrollView, Text, Pressable } from "react-native";
-import React, { useCallback, useMemo, useState } from "react";
+
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 
 
 import { HomeStyles } from "./styles";
@@ -12,8 +13,10 @@ import ViewItem from "./components/ViewItem";
 import SmallModal from "../../components/SmallModal";
 
 import { useAuth } from "../../auth/AuthContext";
+import { refreshSessionOrThrow } from "../../lib/supabase";
+
 import { createWarehouse } from "../../lib/api/warehouses";
-import { adjustItemQuantity, updateItemProperties, deleteItem } from "../../lib/api/items";
+import { adjustItemQuantity, updateItemProperties, deleteItem, fetchItemsPage, ITEMS_PAGE_SIZE } from "../../lib/api/items";
 
 import { filterBySearch, buildSearchHaystack } from "../../lib/search";
 
@@ -22,10 +25,38 @@ export default function Home() {
 
   const { user, warehouses, warehousesLoading, items, itemsLoading, itemsError, templates, templatesLoading, currentWarehouse, isAdmin, reloadCurrentWarehouseData, reloadWarehouses, setItems } = useAuth();
 
+  const [itemsPaging, setItemsPaging] = useState(false);
+  const [itemsPagingError, setItemsPagingError] = useState("");
+  const [nextFrom, setNextFrom] = useState(0);
+  const [hasMoreItems, setHasMoreItems] = useState(true);
+  const pagingInitRef = useRef(false);
+
+  useEffect(() => {
+    if (!currentWarehouse?.id) {
+      pagingInitRef.current = false;
+      setNextFrom(0);
+      setHasMoreItems(false);
+      setItemsPagingError("");
+      return;
+    }
+
+    if (itemsLoading || pagingInitRef.current) return;
+
+    const count = items.length;
+    setNextFrom(count);
+    setHasMoreItems(count === ITEMS_PAGE_SIZE);
+    pagingInitRef.current = true;
+  }, [currentWarehouse?.id, itemsLoading, items.length]);
+
 
 
   const [showNewItem, setShowNewItem] = useState(false);
   const [showItem, setShowItem] = useState(false);
+
+  useEffect(() => {
+    refreshSessionOrThrow();
+  }, [showNewItem, showItem]);
+
 
 
 
@@ -49,16 +80,62 @@ export default function Home() {
 
   const [selectedItemId, setSelectedItemId] = useState(null);
 
-  const selectedItem = useMemo(
-    () => items.find((it) => it.id === selectedItemId) ?? null,
-    [items, selectedItemId]
-  );
+  const selectedItem = useMemo(() => {
+    const it = items.find((row) => row.id === selectedItemId) ?? null;
+    if (!it) return null;
+  
+    const tpl = templates.find((t) => t.id === it.template_id) ?? null;
+    if (!tpl) return it;
+  
+    return { ...it, templates: { properties: tpl.properties } };
+  }, [items, templates, selectedItemId]);
+  
 
+
+  const onReloadItems = useCallback(() => {
+    pagingInitRef.current = false;
+    setNextFrom(0);
+    setHasMoreItems(true);
+    setItemsPagingError("");
+    return reloadCurrentWarehouseData();
+  }, [reloadCurrentWarehouseData]);
+
+  const onLoadMoreItems = useCallback(async () => {
+    if (!currentWarehouse?.id || itemsLoading || itemsPaging || !hasMoreItems) return;
+
+    setItemsPaging(true);
+    setItemsPagingError("");
+    try {
+      const { items: pageItems, nextFrom: next } = await fetchItemsPage({
+        warehouseId: currentWarehouse.id,
+        from: nextFrom,
+        to: nextFrom + ITEMS_PAGE_SIZE - 1,
+      });
+
+      setItems((prev) => {
+        const byId = new Map(prev.map((it) => [it.id, it]));
+        for (const row of pageItems ?? []) {
+          const existing = byId.get(row.id);
+          byId.set(row.id, existing ? { ...existing, ...row } : row);
+        }
+        return Array.from(byId.values());
+      });
+
+      const loadedCount = pageItems?.length ?? 0;
+      setNextFrom(next ?? nextFrom + loadedCount);
+      setHasMoreItems(loadedCount === ITEMS_PAGE_SIZE);
+    } catch (e) {
+      setItemsPagingError(e?.message ?? "Failed to load more items.");
+    } finally {
+      setItemsPaging(false);
+    }
+  }, [currentWarehouse?.id, itemsLoading, itemsPaging, hasMoreItems, nextFrom, setItems]);
 
 
 
 
   const onUpdateItemQuantity = useCallback(async (itemId, deltaInput, note, prevQuantity, warehouseId) => {
+    refreshSessionOrThrow();
 
     const { item: data, nextQuantity } = await adjustItemQuantity({
       itemId,
@@ -80,17 +157,30 @@ export default function Home() {
 
   
 
-  const onUpdateItemInfo = useCallback(async (itemId, nextProperties) => {
-    const data = await updateItemProperties({ itemId, nextProperties });
+  const onUpdateItemInfo = useCallback(async (itemId, nextProperties, signal) => {
+    refreshSessionOrThrow();
 
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === itemId ? (data ? { ...data, templates: it.templates } : { ...it, properties: nextProperties }) : it
-      )
-    );
-
-
+    console.log("[Home][onUpdateItemInfo] start", {
+      itemId,
+      keys: Object.keys(nextProperties ?? {}),
+    });
+  
+    try {
+      const data = await updateItemProperties({ itemId, nextProperties, signal });
+      console.log("[Home][onUpdateItemInfo] success", { itemId, hasData: !!data });
+  
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === itemId ? (data ? { ...data, templates: it.templates } : { ...it, properties: nextProperties }) : it
+        )
+      );
+    } catch (e) {
+      console.log("[Home][onUpdateItemInfo] error", e);
+      throw e;
+    }
   }, []);
+  
+  
 
   const onRemoveItem = useCallback(async (itemId) => {
     await deleteItem({ itemId });
@@ -155,7 +245,7 @@ export default function Home() {
              {itemsLoading && items.length === 0 ? (
               <Text style={HomeStyles.itemsEmptyText}>Loading items...</Text>
             ) : itemsError ? (
-              <Pressable onPress={() => reloadCurrentWarehouseData()}>
+              <Pressable onPress={() => onReloadItems()}>
                 <Text style={HomeStyles.itemsEmptyText}>{itemsError}</Text>
                 <Text style={HomeStyles.itemsEmptyText}>Tap to retry</Text>
               </Pressable>
@@ -172,7 +262,19 @@ export default function Home() {
            
                   }}
                 />
-              ))
+              )
+            )
+              
+            )}
+                        {hasMoreItems && !itemsLoading && filteredItems.length > 0 && (
+              <Pressable onPress={onLoadMoreItems} disabled={itemsPaging}>
+                <Text style={HomeStyles.itemsEmptyText}>
+                  {itemsPaging ? "Loading more..." : "Load more"}
+                </Text>
+              </Pressable>
+            )}
+            {!!itemsPagingError && (
+              <Text style={HomeStyles.itemsEmptyText}>{itemsPagingError}</Text>
             )}
           </ScrollView>
 
@@ -180,7 +282,7 @@ export default function Home() {
             visible={showNewItem}
             warehouseId={currentWarehouse?.id}
             onClose={() => setShowNewItem(false)}
-            onCreated={() => reloadCurrentWarehouseData()}
+            onCreated={() => onReloadItems()}
 
           />
           <ViewItem

@@ -1,5 +1,7 @@
-import { View, Text, ScrollView } from "react-native";
-import React, { useMemo, useState } from "react";
+import { View, Text, ScrollView, Pressable } from "react-native";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
+
+import { fetchTeamMembersPage, TEAM_MEMBERS_PAGE_SIZE } from "../../lib/api/teamMembers";
 
 
 
@@ -11,7 +13,9 @@ import AddCard from "../../components/AddCard";
 import SmallModal from "../../components/SmallModal";
 
 import { useAuth } from "../../auth/AuthContext";
-import { supabase } from "../../lib/supabase";
+import { refreshSessionOrThrow, restRequest } from "../../lib/supabase";
+
+
 import { colors } from "../../assets/styles";
 
 export default function Team() {
@@ -21,6 +25,34 @@ export default function Team() {
   const warehouseId = currentWarehouse?.id ?? null;
 
   const [membersError, setMembersError] = useState("");
+
+  const [membersPaging, setMembersPaging] = useState(false);
+  const [membersPagingError, setMembersPagingError] = useState("");
+  const [membersNextFrom, setMembersNextFrom] = useState(0);
+  const [hasMoreMembers, setHasMoreMembers] = useState(true);
+  const membersPagingInitRef = useRef(false);
+
+  useEffect(() => {
+    refreshSessionOrThrow();
+  }, []);
+
+  useEffect(() => {
+    if (!warehouseId) {
+      membersPagingInitRef.current = false;
+      setMembersNextFrom(0);
+      setHasMoreMembers(false);
+      setMembersPagingError("");
+      return;
+    }
+
+    if (teamMembersLoading || membersPagingInitRef.current) return;
+
+    const count = teamMembers.length;
+    setMembersNextFrom(count);
+    setHasMoreMembers(count === TEAM_MEMBERS_PAGE_SIZE);
+    membersPagingInitRef.current = true;
+  }, [warehouseId, teamMembersLoading, teamMembers.length]);
+
 
   const [searchText, setSearchText] = useState("");
   const [memberActionLoadingId, setMemberActionLoadingId] = useState(null);
@@ -37,15 +69,17 @@ export default function Team() {
   const normalizedSearch = searchText.trim().toLowerCase();
 
   const filteredMembers = useMemo(() => {
-    if (!normalizedSearch) return teamMembers;
+    const visibleMembers = teamMembers.filter((m) => m?.user_id !== user?.id);
+    if (!normalizedSearch) return visibleMembers;
 
-    return teamMembers.filter((m) => {
+    return visibleMembers.filter((m) => {
       const name = String(m?.full_name ?? "").toLowerCase();
       const role = String(m?.role ?? "").toLowerCase();
       const email = String(m?.email ?? "").toLowerCase();
       return name.includes(normalizedSearch) || email.includes(normalizedSearch) || role.includes(normalizedSearch);
     });
-  }, [teamMembers, normalizedSearch]);
+  }, [teamMembers, normalizedSearch, user?.id]);
+
 
 
   const onToggleMemberRole = async (member) => {
@@ -57,13 +91,18 @@ export default function Team() {
     setMemberActionLoadingId(member.user_id);
     setMembersError("");
     try {
-      const { error } = await supabase
-        .from("warehouse_members")
-        .update({ role: nextRole })
-        .eq("warehouse_id", warehouseId)
-        .eq("user_id", member.user_id);
+      await refreshSessionOrThrow();
 
-      if (error) throw error;
+      await restRequest({
+        method: "PATCH",
+        path: "warehouse_members",
+        params: {
+          warehouse_id: `eq.${warehouseId}`,
+          user_id: `eq.${member.user_id}`,
+        },
+        body: { role: nextRole },
+      });
+
 
       setTeamMembers((prev) =>
         prev.map((m) => (m.user_id === member.user_id ? { ...m, role: nextRole } : m))
@@ -87,13 +126,16 @@ export default function Team() {
     setMemberActionLoadingId(member.user_id);
     setMembersError("");
     try {
-      const { error } = await supabase
-        .from("warehouse_members")
-        .delete()
-        .eq("warehouse_id", warehouseId)
-        .eq("user_id", member.user_id);
+      await refreshSessionOrThrow();
+      await restRequest({
+        method: "DELETE",
+        path: "warehouse_members",
+        params: {
+          warehouse_id: `eq.${warehouseId}`,
+          user_id: `eq.${member.user_id}`,
+        },
+      });
 
-      if (error) throw error;
 
       setTeamMembers((prev) => prev.filter((m) => m.user_id !== member.user_id));
       setEditingMemberId(null);
@@ -114,36 +156,83 @@ export default function Team() {
   
     setInviteLoading(true);
     try {
-      const { error } = await supabase.rpc("add_warehouse_member_by_email", {
-        p_warehouse_id: warehouseId,
-        p_email: email,
+      await refreshSessionOrThrow();
+
+      await restRequest({
+        method: "POST",
+        path: "rpc/add_warehouse_member_by_email",
+        body: {
+          p_warehouse_id: warehouseId,
+          p_email: email,
+        },
       });
-      
-      if (error) {
-        const msg = (error.message ?? "").toLowerCase();
-        if (msg.includes("user_not_found")) return setInviteError("User not found. Ask them to sign up first.");
-        if (msg.includes("not_admin")) return setInviteError("Admins only.");
-        throw error;
-      }
+
   
       setShowAddMember(false);
       setInviteEmail("");
-      await reloadCurrentWarehouseData();
+      await onReloadMembers();
     } catch (e) {
+      const msg = (e?.message ?? "").toLowerCase();
+      if (msg.includes("user_not_found")) return setInviteError("User not found. Ask them to sign up first.");
+      if (msg.includes("not_admin")) return setInviteError("Admins only.");
       setInviteError(e?.message ?? "Failed to add member.");
     } finally {
+
       setInviteLoading(false);
     }
   };
+
+  const onReloadMembers = useCallback(() => {
+    membersPagingInitRef.current = false;
+    setMembersNextFrom(0);
+    setHasMoreMembers(true);
+    setMembersPagingError("");
+    return reloadCurrentWarehouseData();
+  }, [reloadCurrentWarehouseData]);
+
+  const onLoadMoreMembers = useCallback(async () => {
+    if (!warehouseId || teamMembersLoading || membersPaging || !hasMoreMembers) return;
+
+    setMembersPaging(true);
+    setMembersPagingError("");
+    try {
+      const { members: pageMembers, nextFrom } = await fetchTeamMembersPage({
+        warehouseId,
+        from: membersNextFrom,
+        to: membersNextFrom + TEAM_MEMBERS_PAGE_SIZE - 1,
+      });
+
+      setTeamMembers((prev) => {
+        const byId = new Map(prev.map((m) => [m.user_id, m]));
+        for (const row of pageMembers ?? []) {
+          const existing = byId.get(row.user_id);
+          byId.set(row.user_id, existing ? { ...existing, ...row } : row);
+        }
+        return Array.from(byId.values());
+      });
+
+      const loadedCount = pageMembers?.length ?? 0;
+      setMembersNextFrom(nextFrom ?? membersNextFrom + loadedCount);
+      setHasMoreMembers(loadedCount === TEAM_MEMBERS_PAGE_SIZE);
+    } catch (e) {
+      setMembersPagingError(e?.message ?? "Failed to load more members.");
+    } finally {
+      setMembersPaging(false);
+    }
+  }, [warehouseId, teamMembersLoading, membersPaging, hasMoreMembers, membersNextFrom, setTeamMembers]);
+
 
   return (
     <View style={TeamStyles.container}>
     <SearchBar value={searchText} onChangeText={setSearchText} placeholder="Search" />
     {isAdmin ? <AddCard onPress={() => setShowAddMember(true)} disabled={!warehouseId} /> : null}
       <ScrollView style={TeamStyles.scroll} showsVerticalScrollIndicator={false}>
-        {!!(membersError || teamMembersError) && (
-          <Text style={{ color: colors.red, marginBottom: 8 }}>{membersError || teamMembersError}</Text>
-        )}
+      {!!(membersError || teamMembersError || membersPagingError) && (
+        <Text style={{ color: colors.red, marginBottom: 8 }}>
+          {membersError || teamMembersError || membersPagingError}
+        </Text>
+      )}
+
 
         {!warehouseId ? (
           <Text style={{ color: colors.greyText,  alignSelf:"center" }}>No warehouse selected.</Text>
@@ -179,6 +268,17 @@ export default function Team() {
             </View>
           ))
         )}
+                {hasMoreMembers && !teamMembersLoading && filteredMembers.length > 0 && (
+          <Pressable onPress={onLoadMoreMembers} disabled={membersPaging}>
+            <Text style={{ color: colors.greyText, alignSelf: "center", paddingVertical: 8 }}>
+              {membersPaging ? "Loading more..." : "Load more"}
+            </Text>
+          </Pressable>
+        )}
+        {!!membersPagingError && (
+          <Text style={{ color: colors.red, alignSelf: "center" }}>{membersPagingError}</Text>
+        )}
+
       </ScrollView>
 
       <SmallModal
