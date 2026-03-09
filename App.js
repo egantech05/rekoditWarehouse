@@ -9,6 +9,10 @@ import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import { AppState } from "react-native";
 import { supabase, refreshSessionOrThrow } from "./src/lib/supabase";
 
+import { consumePendingPublicToken, consumePendingAuthItem } from "./src/lib/publicRedirect";
+
+
+
 import * as Linking from "expo-linking";
 
 
@@ -18,6 +22,24 @@ function AppNavigation() {
   const navigationRef = useNavigationContainerRef();
   const [routeName, setRouteName] = useState();
   const { isLoggedIn, logout } = useAuth();
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    if (!navigationRef.isReady()) return;
+
+    const pendingItem = consumePendingAuthItem();
+    if (pendingItem?.id) {
+      navigationRef.navigate("Home", { openItem: pendingItem });
+      return;
+    }
+
+    const token = consumePendingPublicToken();
+    if (token) {
+      navigationRef.navigate("PublicItem", { publicToken: token });
+    }
+  }, [isLoggedIn]);
+
+
 
   const syncRoute = () => {
     setRouteName(navigationRef.getCurrentRoute()?.name);
@@ -29,8 +51,10 @@ function AppNavigation() {
     config: {
       screens: {
         PublicItem: "public/:publicToken",
+        Login: "login",
       },
     },
+
   };
 
 

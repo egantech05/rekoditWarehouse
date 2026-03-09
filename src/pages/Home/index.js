@@ -21,7 +21,8 @@ import { adjustItemQuantity, updateItemProperties, deleteItem, fetchItemsPage, I
 import { filterBySearch, buildSearchHaystack } from "../../lib/search";
 
 
-export default function Home() {
+export default function Home({ route }) {
+
 
   const { user, warehouses, warehousesLoading, items, itemsLoading, itemsError, templates, templatesLoading, currentWarehouse, isAdmin, reloadCurrentWarehouseData, reloadWarehouses, setItems } = useAuth();
 
@@ -30,6 +31,8 @@ export default function Home() {
   const [nextFrom, setNextFrom] = useState(0);
   const [hasMoreItems, setHasMoreItems] = useState(true);
   const pagingInitRef = useRef(false);
+  const [forcedItem, setForcedItem] = useState(null);
+
 
   useEffect(() => {
     if (!currentWarehouse?.id) {
@@ -56,6 +59,15 @@ export default function Home() {
   useEffect(() => {
     refreshSessionOrThrow();
   }, [showNewItem, showItem]);
+
+  useEffect(() => {
+    const openItem = route?.params?.openItem ?? null;
+    if (!openItem?.id) return;
+
+    setForcedItem(openItem);
+    setSelectedItemId(openItem.id);
+    setShowItem(true);
+  }, [route?.params?.openItem?.id]);
 
 
 
@@ -287,7 +299,7 @@ export default function Home() {
           />
           <ViewItem
             visible={showItem}
-            item={selectedItem}
+            item={selectedItem ?? forcedItem}
             onUpdateQuantity={onUpdateItemQuantity}
             canRemove={isAdmin}
             onUpdateItemInfo={onUpdateItemInfo}
@@ -295,8 +307,9 @@ export default function Home() {
             onClose={() => {
               setShowItem(false);
               setSelectedItemId(null);
-
+              setForcedItem(null);
             }}
+
           />
         </>
       )}

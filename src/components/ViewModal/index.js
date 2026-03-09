@@ -4,7 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { ViewModalStyles } from "./styles";
 import {colors} from "../../assets/styles"
 
-export default function ViewModal({ visible, onClose,title,tabs, children, footer }) {
+export default function ViewModal({ visible, onClose, title, tabs, children, footer, actionLabel, onAction }) {
+
     return (
       <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
         <View style={ViewModalStyles.container} >
@@ -13,9 +14,16 @@ export default function ViewModal({ visible, onClose,title,tabs, children, foote
             <View style={ViewModalStyles.header}>
    
                   <Text style={ViewModalStyles.headerText}>{title}</Text>
-                  <Pressable onPress={onClose}>
-                    <Ionicons name="close-outline" size={24} color={colors.boldColor} />
-                  </Pressable>
+                  {actionLabel && onAction ? (
+                    <Pressable onPress={onAction}>
+                      <Text style={ViewModalStyles.headerText}>{actionLabel}</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable onPress={onClose}>
+                      <Ionicons name="close-outline" size={24} color={colors.boldColor} />
+                    </Pressable>
+                  )}
+
          
 
             </View>

@@ -34,7 +34,8 @@ const toPropertiesPayload = (draftProperties) => {
   return nextProperties;
 };
 
-export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onRemoveItem, onUpdateItemInfo, canRemove = false, readOnly = false }) {
+export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onRemoveItem, onUpdateItemInfo, canRemove = false, readOnly = false, headerActionLabel, onHeaderAction }) {
+
     const [selectedTab, setSelectedTab] = useState("info");
     const [isEditingInfo, setIsEditingInfo] = useState(false);
     const [draftProperties, setDraftProperties] = useState({});
@@ -265,7 +266,16 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
 
     
     return(
-      <ViewModal visible={visible} onClose={onClose} title={modalTitle} tabs={tabs} footer={footer}>
+      <ViewModal
+      visible={visible}
+      onClose={onClose}
+      title={modalTitle}
+      tabs={tabs}
+      footer={footer}
+      actionLabel={headerActionLabel}
+      onAction={onHeaderAction}
+    >
+
         <View style={ViewItemStyles.container}>
           {!!actionError && <Text style={{ color: colors.red, marginBottom: 8 }}>{actionError}</Text>}
           {tabContent}
