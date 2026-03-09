@@ -8,6 +8,7 @@ import { supabase } from "../../../../../../lib/supabase";
 import { useAuth } from "../../../../../../auth/AuthContext";
 import { fetchProfilesByUserIds } from "../../../../../../lib/api/profiles";
 import { fetchItemEvents, ITEM_EVENTS_PAGE_SIZE } from "../../../../../../lib/api/itemEvents";
+import { fetchPublicItemHistoryByToken, PUBLIC_ITEM_HISTORY_PAGE_SIZE } from "../../../../../../lib/api/publicClient";
 
 
 
@@ -33,7 +34,8 @@ const withFallbackTimeout = (promise, ms) =>
 
 import LogDisplay from "./components/LogDisplay";
 
-export default function HistoryTab({ item, startDate, endDate }) {
+export default function HistoryTab({ item, startDate, endDate, readOnly = false }) {
+
   const [events, setEvents] = useState([]);
   const [eventsError, setEventsError] = useState("");
   const { session } = useAuth();
@@ -43,6 +45,10 @@ export default function HistoryTab({ item, startDate, endDate }) {
   const [eventsPagingError, setEventsPagingError] = useState("");
   const [eventsNextFrom, setEventsNextFrom] = useState(0);
   const [hasMoreEvents, setHasMoreEvents] = useState(true);
+
+  const isPublic = !!readOnly;
+  const publicToken = item?.public_token ?? null;
+
 
   const attachActorNames = async (rows, accessToken) => {
     const actorIds = [...new Set(rows.map((r) => r?.actor_id).filter(Boolean))];
@@ -109,6 +115,46 @@ export default function HistoryTab({ item, startDate, endDate }) {
             return d.toISOString();
           })()
         : null;
+
+        if (isPublic) {
+          if (!publicToken) {
+            setEventsError("Missing public token.");
+            setEvents([]);
+            setEventsLoading(false);
+            setEventsNextFrom(0);
+            setHasMoreEvents(true);
+            setEventsPagingError("");
+            return;
+          }
+  
+          try {
+            setEventsLoading(false);
+            setEventsError("");
+            setEventsLoading(true);
+  
+            const { events: rows, nextFrom } = await fetchPublicItemHistoryByToken({
+              publicToken,
+              from: 0,
+              to: PUBLIC_ITEM_HISTORY_PAGE_SIZE - 1,
+            });
+  
+            if (ignore) return;
+  
+            setEventsError("");
+            setEvents(rows);
+            setEventsNextFrom(nextFrom ?? rows.length);
+            setHasMoreEvents(rows.length === PUBLIC_ITEM_HISTORY_PAGE_SIZE);
+            setEventsPagingError("");
+          } catch (e) {
+            if (ignore) return;
+            setEventsError(e?.message ?? "Failed to load history.");
+            setEvents([]);
+          } finally {
+            if (!ignore) setEventsLoading(false);
+          }
+  
+          return;
+        }
   
       try {
         setEventsLoading(false);
@@ -215,6 +261,33 @@ export default function HistoryTab({ item, startDate, endDate }) {
 
   const onLoadMoreEvents = async () => {
     if (eventsLoading || eventsPaging || !hasMoreEvents) return;
+
+    if (isPublic) {
+      if (!publicToken) {
+        setEventsPagingError("Missing public token.");
+        return;
+      }
+
+      setEventsPaging(true);
+      setEventsPagingError("");
+      try {
+        const { events: rows, nextFrom } = await fetchPublicItemHistoryByToken({
+          publicToken,
+          from: eventsNextFrom,
+          to: eventsNextFrom + PUBLIC_ITEM_HISTORY_PAGE_SIZE - 1,
+        });
+
+        setEvents((prev) => [...prev, ...rows]);
+        const loadedCount = rows?.length ?? 0;
+        setEventsNextFrom(nextFrom ?? eventsNextFrom + loadedCount);
+        setHasMoreEvents(loadedCount === PUBLIC_ITEM_HISTORY_PAGE_SIZE);
+      } catch (e) {
+        setEventsPagingError(e?.message ?? "Failed to load more history.");
+      } finally {
+        setEventsPaging(false);
+      }
+      return;
+    }
 
     const accessToken = session?.access_token;
     if (!accessToken) {

@@ -48,3 +48,46 @@ const buildRestQuery = (params = {}) => {
     return data;
   }
   
+  export const PUBLIC_ITEM_HISTORY_PAGE_SIZE = 50;
+  
+  export async function fetchPublicItemByToken({ publicToken }) {
+    if (!publicToken) return null;
+  
+    const rows = await publicRestRequest({
+      method: "POST",
+      path: "rpc/get_public_item_by_token",
+      body: {
+        p_public_token: publicToken,
+      },
+    });
+  
+    const row = Array.isArray(rows) ? rows[0] ?? null : rows ?? null;
+    if (!row) return null;
+
+    if (row.template_properties && !row.templates) {
+      const { template_properties, ...rest } = row;
+      return { ...rest, templates: { properties: template_properties } };
+    }
+
+    return row;
+
+  }
+  
+  export async function fetchPublicItemHistoryByToken({ publicToken, from = 0, to = PUBLIC_ITEM_HISTORY_PAGE_SIZE - 1 }) {
+    if (!publicToken) return { events: [], nextFrom: from };
+    const limit = Math.max(0, to - from + 1);
+  
+    const data = await publicRestRequest({
+      method: "POST",
+      path: "rpc/get_public_item_history_by_token",
+      body: {
+        p_public_token: publicToken,
+        p_limit: limit,
+        p_offset: from,
+      },
+    });
+  
+    const events = Array.isArray(data) ? data : [];
+    return { events, nextFrom: from + events.length };
+  }
+  

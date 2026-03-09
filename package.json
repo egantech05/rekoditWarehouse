@@ -15,6 +15,7 @@
     "@react-navigation/native-stack": "^7.8.6",
     "@supabase/supabase-js": "^2.89.0",
     "expo": "~54.0.29",
+    "expo-linking": "~8.0.11",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -22,8 +23,10 @@
     "react-native-gesture-handler": "~2.28.0",
     "react-native-paper": "^5.14.5",
     "react-native-paper-dates": "^0.22.51",
+    "react-native-qrcode-svg": "^6.3.21",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
+    "react-native-svg": "^15.15.3",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "^0.21.0"
   },

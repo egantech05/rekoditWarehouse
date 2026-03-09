@@ -5,6 +5,8 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Home from "../../pages/Home";
 import Templates from "../../pages/Templates";
 import Team from "../../pages/Team";
+import PublicItem from "../../pages/PublicItem";
+
 
 
 const Stack = createNativeStackNavigator();
@@ -16,6 +18,7 @@ export default function StackNavigator() {
       <Stack.Screen name="Home" component={Home} />
       <Stack.Screen name="Templates" component={Templates} />
       <Stack.Screen name="Team" component={Team} />
+      <Stack.Screen name="PublicItem" component={PublicItem} />
     </Stack.Navigator>
   );
 }

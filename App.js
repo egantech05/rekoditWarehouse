@@ -9,6 +9,9 @@ import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import { AppState } from "react-native";
 import { supabase, refreshSessionOrThrow } from "./src/lib/supabase";
 
+import * as Linking from "expo-linking";
+
+
 
 
 function AppNavigation() {
@@ -21,9 +24,19 @@ function AppNavigation() {
     refreshSessionOrThrow();
   };
 
+  const linking = {
+    prefixes: [Linking.createURL("/")],
+    config: {
+      screens: {
+        PublicItem: "public/:publicToken",
+      },
+    },
+  };
+
+
 
   return (
-    <NavigationContainer ref={navigationRef} onReady={syncRoute} onStateChange={syncRoute}>
+    <NavigationContainer ref={navigationRef} onReady={syncRoute} onStateChange={syncRoute} linking={linking}>
       {isLoggedIn ? (
         <MainLayout routeName={routeName} onLogout={logout} />
       ) : (

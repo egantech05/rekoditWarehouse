@@ -34,7 +34,7 @@ const toPropertiesPayload = (draftProperties) => {
   return nextProperties;
 };
 
-export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onRemoveItem, onUpdateItemInfo, canRemove = false }) {
+export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onRemoveItem, onUpdateItemInfo, canRemove = false, readOnly = false }) {
     const [selectedTab, setSelectedTab] = useState("info");
     const [isEditingInfo, setIsEditingInfo] = useState(false);
     const [draftProperties, setDraftProperties] = useState({});
@@ -55,6 +55,9 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
     const [detailItem, setDetailItem] = useState(item ?? null);
     const saveAbortRef = useRef(null);
 
+    const isReadOnly = !!readOnly;
+
+
     useEffect(() => {
       if (!item?.id) return;
       setDetailItem((prev) => {
@@ -68,7 +71,7 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
     
 
     useEffect(() => {
-      if (!visible || !item?.id) return;
+      if (!visible || !item?.id || isReadOnly) return;
       let ignore = false;
 
       (async () => {
@@ -120,32 +123,32 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
     const modalTitle = firstPropertyValue ?? activeItem?.name ?? "Inventory";
 
     const footer =
-      selectedTab === "info" ? (
-        <QuantityEdit
-          value={draftQuantity}
-          onChange={setDraftQuantity}
-          disabled={!activeItem?.id || actionLoading}
-          onSubmit={() => {
-            if (!activeItem?.id) return;
-            setQtyNotesError("");
-            setShowQtyConfirm(true);
-          }}
-        />
-      ) : selectedTab === "history" ? (
-        <FooterIconButton
-          iconName="calendar-outline"
-          color={colors.boldColor}
-          onPress={() => setShowHistoryDateFilter(true)}
-        />
-      ) : selectedTab === "qr" ? (
-        <FooterIconButton iconName="download-outline" text="Download" color={colors.boldColor} />
-      
-      ) : null;
+    selectedTab === "history" ? (
+      <FooterIconButton
+        iconName="calendar-outline"
+        color={colors.boldColor}
+        onPress={() => setShowHistoryDateFilter(true)}
+      />
+    ) : !isReadOnly && selectedTab === "info" ? (
+      <QuantityEdit
+        value={draftQuantity}
+        onChange={setDraftQuantity}
+        disabled={!activeItem?.id || actionLoading}
+        onSubmit={() => {
+          if (!activeItem?.id) return;
+          setQtyNotesError("");
+          setShowQtyConfirm(true);
+        }}
+      />
+    ) : !isReadOnly && selectedTab === "qr" ? (
+      <FooterIconButton iconName="download-outline" text="Download" color={colors.boldColor} />
+    ) : null;
+  
 
     const tabs = (
         <View style={ViewItemStyles.tabs}>
             <TabButtons selectedTab={selectedTab} onSelectTab={setSelectedTab}/>
-            {selectedTab === "info" && (
+            {selectedTab === "info" && !isReadOnly && (
               <EditButtons
                 canRemove={canRemove}
                 disabled={!activeItem?.id || actionLoading}
@@ -243,7 +246,8 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
               />
             );
           case "history":
-            return <HistoryTab item={activeItem} startDate={historyStartDate} endDate={historyEndDate} />;
+            return <HistoryTab item={activeItem} startDate={historyStartDate} endDate={historyEndDate} readOnly={isReadOnly} />;
+
           case "qr":
             return <QRTab item={activeItem} />;
           default:
