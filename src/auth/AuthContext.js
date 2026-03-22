@@ -83,6 +83,10 @@ const loadWarehouses = useCallback(async () => {
 
     const next = data ?? [];
     setWarehouses(next);
+    if (warehouseSelectionLoaded && !warehouseSelection?.id && next.length) {
+      setWarehouseSelection(next[0]);
+    }
+
     return next;
   } catch (e) {
 
@@ -93,7 +97,8 @@ const loadWarehouses = useCallback(async () => {
   } finally {
     setWarehousesLoading(false);
   }
-}, [session?.user?.id]);
+}, [session?.user?.id, warehouseSelectionLoaded, warehouseSelection?.id, setWarehouseSelection]);
+
 
 const loadCurrentWarehouseData = useCallback(
   async (warehouseId, userId, { silent = false } = {}) => {
@@ -399,24 +404,9 @@ const reloadCurrentWarehouseData = useCallback(
     }
   
     loadWarehouses();
-  }, [session?.user?.id, loadWarehouses]);
+  }, [session?.user?.id, warehouseSelectionLoaded, loadWarehouses]);
   
-  useEffect(() => {
-    if (!warehouseSelectionLoaded) return;
-  
-    if (!warehouses.length) {
-      if (warehouseSelectionLoaded && !warehousesLoading) {
-        if (warehouseSelection?.id) setWarehouseSelection(null);
-      }
-      return;
-    }
-  
-    const selectedId = warehouseSelection?.id;
-    if (selectedId && !warehouses.find((w) => w.id === selectedId)) {
-      setWarehouseSelection(null);
-    }
-  }, [warehouseSelectionLoaded, warehouses, warehouseSelection?.id, setWarehouseSelection]);
-  
+
   useEffect(() => {
     if (!warehouseSelectionLoaded) return;
     if (warehousesLoading) return;
