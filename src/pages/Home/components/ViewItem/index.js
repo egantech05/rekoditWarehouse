@@ -56,6 +56,9 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
     const [detailItem, setDetailItem] = useState(item ?? null);
     const saveAbortRef = useRef(null);
 
+    const qrDownloadRef = useRef(null);
+
+
     const isReadOnly = !!readOnly;
 
 
@@ -142,7 +145,12 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
         }}
       />
     ) : !isReadOnly && selectedTab === "qr" ? (
-      <FooterIconButton iconName="download-outline" text="Download" color={colors.boldColor} />
+      <FooterIconButton
+        iconName="download-outline"
+        text="Download"
+        color={colors.boldColor}
+        onPress={() => qrDownloadRef.current?.()}
+      />
     ) : null;
   
 
@@ -249,8 +257,9 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
           case "history":
             return <HistoryTab item={activeItem} startDate={historyStartDate} endDate={historyEndDate} readOnly={isReadOnly} />;
 
-          case "qr":
-            return <QRTab item={activeItem} />;
+            case "qr":
+              return <QRTab item={activeItem} onBindDownload={(fn) => { qrDownloadRef.current = fn; }} />;
+            
           default:
             return (
               <InfoTab
