@@ -57,13 +57,17 @@ const styles = StyleSheet.create({
         borderWidth:3,
         borderColor: colors.brightDarker,
         borderRadius:16,
+        flexShrink:1,
+        minWidth:0,
     },
 
     qtyBtn:{
         borderRadius:8,
         paddingVertical: 16,
-        paddingHorizontal:24,
+        paddingHorizontal:12,
         backgroundColor: colors.boldColor,
+        alignItems:"center",
+        justifyContent:"center"
     
     },
 
@@ -82,14 +86,16 @@ const styles = StyleSheet.create({
         flex:1,
         alignSelf: "center",
         textAlign: "center",
+        minWidth: 0,
 
     },
 
     confirm:{
         borderRadius:8,
-        paddingHorizontal:24,
+        paddingHorizontal:12,
         backgroundColor: colors.boldColor,
         marginLeft:8,
         justifyContent: "center",       
+        minWidth: 44,
     },
 });
