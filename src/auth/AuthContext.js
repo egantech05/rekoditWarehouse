@@ -403,8 +403,11 @@ const reloadCurrentWarehouseData = useCallback(
       return;
     }
   
+    if (!warehouseSelectionLoaded) return;
+  
     loadWarehouses();
   }, [session?.user?.id, warehouseSelectionLoaded, loadWarehouses]);
+  
   
 
   useEffect(() => {
