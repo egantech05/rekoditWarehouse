@@ -23,7 +23,10 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./src/assets/favicon.png"
+      "favicon": "./src/assets/rekodit.svg",
+      "themeColor": "#292929",
+      "backgroundColor": "#292929"
+  
     }
   }
 }
