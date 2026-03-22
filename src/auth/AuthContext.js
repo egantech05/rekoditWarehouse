@@ -417,6 +417,15 @@ const reloadCurrentWarehouseData = useCallback(
     }
   }, [warehouseSelectionLoaded, warehouses, warehouseSelection?.id, setWarehouseSelection]);
   
+  useEffect(() => {
+    if (!warehouseSelectionLoaded) return;
+    if (warehousesLoading) return;
+    if (warehouseSelection?.id) return;
+    if (!warehouses.length) return;
+  
+    setWarehouseSelection(warehouses[0]);
+  }, [warehouseSelectionLoaded, warehousesLoading, warehouses, warehouseSelection?.id, setWarehouseSelection]);
+  
   
   useEffect(() => {
     const selectedId = warehouseSelection?.id ?? null;

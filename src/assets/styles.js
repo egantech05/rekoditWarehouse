@@ -1,12 +1,12 @@
 export const colors = {
     brandHighlight: "#31FFD2",
-    body: "#212121",
-    boldColor: "#1C1B1B",
+    body: "hsl(0,0%,16%)",
+    boldColor: "hsl(0,0%,10%)",
     secondary: "#333333",
     tertiary: "#3A3939",
-    bright: "#D9D9D9",
-    brightDarker: "#D0D0D0",
-    brightOutline: "#9D9D9D",
+    bright: "hsl(0,0%,90%)",
+    brightDarker: "hsl(0,0%,95%)",
+    brightOutline: "hsl(0,0%,80%)",
     greyText: "#878787",
     red:"#DD5252",
 };
