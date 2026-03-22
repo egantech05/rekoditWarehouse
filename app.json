@@ -4,8 +4,8 @@
     "slug": "rekoditWarehouse",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./src/assets/rekodit.png",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./src/assets/splash-icon.png",
