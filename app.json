@@ -23,7 +23,7 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./src/assets/rekodit.svg",
+      "favicon": "./src/assets/rekodit.png",
       "themeColor": "#292929",
       "backgroundColor": "#292929"
   
