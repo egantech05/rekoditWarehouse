@@ -61,10 +61,17 @@ export default function Templates() {
   }, [warehouseId, templatesLoading, templates.length]);
 
 
-const filteredTemplates = useMemo(
-  () => filterBySearch(templates, searchText, (t) => buildSearchHaystack(t?.name, t?.properties)),
-  [templates, searchText]
-);
+  const filteredTemplates = useMemo(
+    () =>
+      filterBySearch(templates, searchText, (t) =>
+        buildSearchHaystack(
+          t?.name,
+          (Array.isArray(t?.template_properties) ? t.template_properties : []).map((p) => p?.name)
+        )
+      ),
+    [templates, searchText]
+  );
+  
 
 
 
@@ -101,8 +108,19 @@ const filteredTemplates = useMemo(
     setTemplateActionError("");
     const trimmed = (name ?? "").trim();
     const trimmedProperties = (Array.isArray(properties) ? properties : [])
-      .map((p) => (p ?? "").trim())
-      .filter(Boolean);
+    .map((p, idx) => {
+      if (typeof p === "string") {
+        const name = p.trim();
+        return { id: null, name, position: idx + 1 };
+      }
+      return {
+        id: p?.id ?? null,
+        name: String(p?.name ?? "").trim(),
+        position: idx + 1,
+      };
+    })
+    .filter((p) => p.name);
+  
   
     if (!templateId) {
       setTemplateActionError("No template selected.");
@@ -229,7 +247,7 @@ const filteredTemplates = useMemo(
           <TemplateDisplayCard
             key={t?.id ?? t?.name ?? idx}
             title={t?.name ?? "Template"}
-            properties={t?.properties ?? []}
+            properties={t?.template_properties ?? []}
             onPress={() => {
               setTemplateActionError("");
               setSelectedTemplate(t);

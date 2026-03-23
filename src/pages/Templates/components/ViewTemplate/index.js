@@ -16,7 +16,8 @@ export default function ViewTemplate({visible, onClose, template, isAdmin, onUpd
 
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState("");
-    const [properties, setProperties] = useState([""]);
+    const [properties, setProperties] = useState([{ id: null, name: "" }]);
+
 
     useEffect(() => {
         if (!visible) {
@@ -31,8 +32,13 @@ export default function ViewTemplate({visible, onClose, template, isAdmin, onUpd
     setIsEditing(false);
     setName(template?.name ?? "");
 
-    const nextProps = Array.isArray(template?.properties) ? template.properties : [];
-    setProperties(nextProps.length ? nextProps : [""]);
+    const nextProps = Array.isArray(template?.template_properties) ? template.template_properties : [];
+    setProperties(
+      nextProps.length
+        ? nextProps.map((p) => ({ id: p?.id ?? null, name: p?.name ?? "" }))
+        : [{ id: null, name: "" }]
+    );
+    
 
     return () => {
         ignore = true;
@@ -41,13 +47,20 @@ export default function ViewTemplate({visible, onClose, template, isAdmin, onUpd
 
     }, [visible, template?.id]);
 
-    const addProperty = () => setProperties((p) => [...p, ""]);
+    const addProperty = () => setProperties((p) => [...p, { id: null, name: "" }]);
     const updateProperty = (index, value) =>
-    setProperties((p) => p.map((v, i) => (i === index ? value : v)));
+      setProperties((p) => p.map((v, i) => (i === index ? { ...v, name: value } : v)));
     const deleteProperty = (index) =>
-    setProperties((p) => (p.length > 1 ? p.filter((_, i) => i !== index) : p));
-
-    const trimmedProperties = properties.map((p) => (p ?? "").trim()).filter(Boolean);
+      setProperties((p) => (p.length > 1 ? p.filter((_, i) => i !== index) : p));
+    
+    const trimmedProperties = properties
+      .map((p, idx) => ({
+        id: p?.id ?? null,
+        name: String(p?.name ?? "").trim(),
+        position: idx + 1,
+      }))
+      .filter((p) => p.name);
+    
 
     const footer = null;
     
@@ -97,11 +110,12 @@ export default function ViewTemplate({visible, onClose, template, isAdmin, onUpd
                 {properties.map((prop, idx) => (
                 <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                     <View style={{ flex: 1 }}>
-                    <InputBox
+                        <InputBox
                         title={`Property ${idx + 1}`}
-                        value={prop}
+                        value={prop?.name ?? ""}
                         onChangeText={(t) => updateProperty(idx, t)}
-                    />
+                        />
+
                     </View>
 
                     {properties.length > 1 ? (
@@ -115,9 +129,14 @@ export default function ViewTemplate({visible, onClose, template, isAdmin, onUpd
                 <AddProperty onPress={addProperty} />
                 </>
                 ) : (
-                    (Array.isArray(template?.properties) ? template.properties : []).map((p, idx) => (
-                        <InfoBox key={`${p}-${idx}`} title={`Property ${idx + 1}`} value={String(p)} />
-                    ))
+                    (Array.isArray(template?.template_properties) ? template.template_properties : []).map((p, idx) => (
+                        <InfoBox
+                          key={`${p?.id ?? p?.name ?? idx}`}
+                          title={`Property ${idx + 1}`}
+                          value={String(p?.name ?? "")}
+                        />
+                      ))
+                      
                 )}
 
             </ScrollView>

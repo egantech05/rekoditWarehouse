@@ -66,8 +66,9 @@ const buildRestQuery = (params = {}) => {
 
     if (row.template_properties && !row.templates) {
       const { template_properties, ...rest } = row;
-      return { ...rest, templates: { properties: template_properties } };
+      return { ...rest, templates: { template_properties } };
     }
+    
 
     return row;
 

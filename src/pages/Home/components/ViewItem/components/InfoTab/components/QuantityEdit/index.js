@@ -1,10 +1,19 @@
 
 import { View, Text,TextInput, StyleSheet,Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
+
 
 import {colors} from "../../../../../../../../assets/styles"
 
 export default function QuantityEdit({ value = 0, onChange, onSubmit, disabled = false }) {
+
+    const [text, setText] = useState(String(value ?? 0));
+
+        useEffect(() => {
+        setText(String(value ?? 0));
+        }, [value]);
+
 
     return(
         <View style={styles.container}>
@@ -19,14 +28,21 @@ export default function QuantityEdit({ value = 0, onChange, onSubmit, disabled =
 
             <TextInput
             style={styles.input}
-            value={String(value)}
+            value={text}
             keyboardType="numbers-and-punctuation"
             editable={!disabled}
             onChangeText={(t) => {
-            const next = parseInt(t, 10);
-            onChange?.(Number.isFinite(next) ? next : 0);
+
+            if (!/^-?\d*$/.test(t)) return;
+
+            setText(t);
+
+            if (t === "" || t === "-") return;
+            const next = Number(t);
+            if (Number.isFinite(next)) onChange?.(next);
             }}
             />
+
 
             <Pressable
             style={styles.qtyBtn}

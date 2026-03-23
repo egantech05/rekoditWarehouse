@@ -13,7 +13,7 @@ export async function fetchItemsPage({ warehouseId, from = 0, to = ITEMS_PAGE_SI
   const data = await restRequest({
     path: "items",
     params: {
-      select: "id,name,quantity,template_id,created_at,properties,warehouse_id",
+      select: "id,name,quantity,template_id,created_at,warehouse_id,item_property_values(property_id,value)",
       warehouse_id: `eq.${warehouseId}`,
       order: "created_at.desc",
       limit: String(limit),
@@ -32,34 +32,59 @@ export async function fetchItemDetail({ itemId }) {
   const rows = await restRequest({
     path: "items",
     params: {
-      select: "*,templates(properties)",
+      select: "*,item_property_values(property_id,value),templates(template_properties(id,name,position))",
+
       id: `eq.${itemId}`,
       limit: "1",
     },
   });
 
-  return restFirst(rows);
+  
+
+  const item = restFirst(rows);
+  if (item?.templates?.template_properties) {
+    item.templates.template_properties = item.templates.template_properties
+      .slice()
+      .sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0));
+  }
+  return item;
+  
 }
 
 
 
 export async function createItem({ warehouseId, templateId, name, quantity = 0, properties }) {
-  const insertRow = { warehouse_id: warehouseId, template_id: templateId, name, quantity, properties };
+  const insertRow = { warehouse_id: warehouseId, template_id: templateId, name, quantity };
   await refreshSessionOrThrow();
 
+  const rows = await restRequest({
+    method: "POST",
+    path: "items",
+    params: { select: "id" },
+    body: insertRow,
+    preferReturn: true,
+  });
 
-  try {
-    await restRequest({ method: "POST", path: "items", body: insertRow });
-  } catch (e) {
-    if (String(e?.message ?? "").includes("properties")) {
-      const { properties: _properties, ...baseRow } = insertRow;
-      await restRequest({ method: "POST", path: "items", body: baseRow });
-      return;
-    }
-    throw e;
+  const item = restFirst(rows);
+  const itemId = item?.id;
+  if (!itemId) return;
+
+  const entries = properties && typeof properties === "object" ? Object.entries(properties) : [];
+  const values = entries.map(([propertyId, value]) => ({
+    item_id: itemId,
+    property_id: propertyId,
+    value: value == null || String(value).trim() === "" ? null : String(value),
+  }));
+
+  if (values.length) {
+    await restRequest({
+      method: "POST",
+      path: "item_property_values",
+      body: values,
+    });
   }
-
 }
+
 
 export async function adjustItemQuantity({ itemId, warehouseId, actorId, deltaInput, prevQuantity, note }) {
   const safePrevQuantity = Math.max(0, Math.trunc(Number(prevQuantity) || 0));
@@ -121,20 +146,25 @@ export async function updateItemProperties({ itemId, nextProperties, signal }) {
 
   await refreshSessionOrThrow();
 
+  const entries = nextProperties && typeof nextProperties === "object" ? Object.entries(nextProperties) : [];
+  const rows = entries.map(([propertyId, value]) => ({
+    item_id: itemId,
+    property_id: propertyId,
+    value: value == null || String(value).trim() === "" ? null : String(value),
+  }));
 
-  const rows = await restRequest({
-    method: "PATCH",
-    path: "items",
-    params: { id: `eq.${itemId}`, select: "*" },
-    body: { properties: nextProperties },
-    preferReturn: true,
+  if (!rows.length) return null;
+
+  const data = await restRequest({
+    method: "POST",
+    path: "item_property_values",
+    params: { on_conflict: "item_id,property_id" },
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: rows,
     signal,
   });
 
-  const data = restFirst(rows);
-
-
-  console.log("[items][updateItemProperties] success", { itemId, hasData: !!data });
+  console.log("[items][updateItemProperties] success", { itemId, updatedCount: data?.length ?? 0 });
   return data ?? null;
 }
 

@@ -6,51 +6,50 @@ import InputBox from "../../../../../../components/InputBox";
 
 
 export default function InfoTab({ item, isEditing = false, draftProperties = {}, setDraftProperties }) {
-  const templateKeys = Array.isArray(item?.templates?.properties) ? item.templates.properties : [];
+  const templateProps = Array.isArray(item?.templates?.template_properties)
+    ? item.templates.template_properties
+    : [];
 
-  const orderedDisplayEntries =
-    item?.properties && typeof item.properties === "object"
-      ? templateKeys.length
-        ? [
-            ...templateKeys.map((k) => [k, item.properties[k]]),
-            ...Object.entries(item.properties).filter(([k]) => !templateKeys.includes(k)),
-          ]
-        : Object.entries(item.properties)
-      : [];
+  const valueMap = Array.isArray(item?.item_property_values)
+    ? Object.fromEntries(
+        item.item_property_values.map((v) => [v?.property_id, v?.value])
+      )
+    : {};
 
-  const orderedDraftKeys = templateKeys.length
-    ? [
-        ...templateKeys.filter((k) => Object.prototype.hasOwnProperty.call(draftProperties ?? {}, k)),
-        ...Object.keys(draftProperties ?? {}).filter((k) => !templateKeys.includes(k)),
-      ]
-    : Object.keys(draftProperties ?? {});
+  const orderedDisplayEntries = templateProps.map((p) => [
+    p?.id,
+    p?.name ?? "",
+    valueMap?.[p?.id] ?? null,
+  ]);
 
   return (
     <View style={styles.container}>
       <View style={styles.counter}>
-      <Text style={styles.counterText}>{String(item?.quantity ?? 0)}</Text>
+        <Text style={styles.counterText}>{String(item?.quantity ?? 0)}</Text>
       </View>
+
       <ScrollView showsVerticalScrollIndicator={false}>
         {isEditing
-          ? orderedDraftKeys.map((k) => (
+          ? templateProps.map((p, idx) => (
               <InputBox
-                key={k}
-                title={k}
-                value={draftProperties?.[k] ?? ""}
-                onChangeText={(t) => setDraftProperties?.((prev) => ({ ...(prev ?? {}), [k]: t }))}
+                key={p?.id ?? idx}
+                title={p?.name ?? `Property ${idx + 1}`}
+                value={draftProperties?.[p?.id] ?? ""}
+                onChangeText={(t) => setDraftProperties?.((prev) => ({ ...(prev ?? {}), [p?.id]: t }))}
               />
             ))
-          : item?.properties && typeof item.properties === "object"
-            ? orderedDisplayEntries
-                .filter(([, v]) => v != null && String(v).trim() !== "")
-                .map(([k, v]) => <InfoBox key={k} title={k} value={String(v)} />)
-            : null}
-
+          : orderedDisplayEntries.map(([id, name, value], idx) => (
+              <InfoBox
+                key={id ?? idx}
+                title={name || `Property ${idx + 1}`}
+                value={value == null || String(value).trim() === "" ? "—" : String(value)}
+              />
+            ))}
       </ScrollView>
-
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

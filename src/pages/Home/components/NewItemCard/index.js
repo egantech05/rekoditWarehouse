@@ -25,6 +25,11 @@ export default function NewItemCard({ visible, onClose, warehouseId, onCreated }
     const [propertyValues, setPropertyValues] = useState({});
     const [createLoading, setCreateLoading] = useState(false);
     const [createError, setCreateError] = useState("");
+
+    const templateProps = Array.isArray(selectedTemplate?.template_properties)
+  ? selectedTemplate.template_properties
+  : [];
+
   
     useEffect(() => {
       if (!visible) {
@@ -52,14 +57,16 @@ export default function NewItemCard({ visible, onClose, warehouseId, onCreated }
             return;
           }
       
-          const templateProps = Array.isArray(selectedTemplate?.properties) ? selectedTemplate.properties : [];
-      
-          const properties = {};
-          for (const key of templateProps) {
-            const raw = propertyValues[key];
-            const trimmed = typeof raw === "string" ? raw.trim() : "";
-            properties[key] = trimmed ? trimmed : null; // null is OK
-          }
+        
+        const properties = {};
+        for (const prop of templateProps) {
+          const propId = prop?.id;
+          if (!propId) continue;
+          const raw = propertyValues[propId];
+          const trimmed = typeof raw === "string" ? raw.trim() : "";
+          properties[propId] = trimmed ? trimmed : null; 
+        }
+        
       
 
       
@@ -121,7 +128,7 @@ export default function NewItemCard({ visible, onClose, warehouseId, onCreated }
                 templates.map((t, idx) => (
                 <Pressable
                     key={t?.id ?? `${t?.name ?? "template"}-${idx}`}
-                    style={{ paddingVertical: 10 }}
+                    style={{ paddingVertical: 10, paddingHorizontal:24, }}
                     onPress={() => onSelectTemplate(t)}
                 >
                     <Text style={{ color: colors.boldColor }}>{t?.name ?? "Template"}</Text>
@@ -131,19 +138,20 @@ export default function NewItemCard({ visible, onClose, warehouseId, onCreated }
             </>
             )}
 
-            {!!selectedTemplate &&
-                Array.isArray(selectedTemplate?.properties) &&
-                selectedTemplate.properties.map((prop, idx) => (
-                <InputBox
-                    key={`${prop}-${idx}`}
-                    title={prop}
-                    value={propertyValues[prop] ?? ""}
-                    onChangeText={(t) => {
-                    setPropertyValues((prev) => ({ ...prev, [prop]: t }));
-                    if (createError) setCreateError("");
-                    }}
-                />
-                ))}
+          {!!selectedTemplate &&
+            templateProps.map((prop, idx) => (
+              <InputBox
+                key={prop?.id ?? `${prop?.name ?? "prop"}-${idx}`}
+                title={prop?.name ?? `Property ${idx + 1}`}
+                value={propertyValues[prop?.id] ?? ""}
+                onChangeText={(t) => {
+                  setPropertyValues((prev) => ({ ...prev, [prop?.id]: t }));
+                  if (createError) setCreateError("");
+                }}
+              />
+            ))
+          }
+
 
             {!!createError && <Text style={{ color: colors.red, margin: 8 }}>{createError}</Text>}
             </ScrollView>

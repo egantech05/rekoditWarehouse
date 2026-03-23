@@ -75,10 +75,23 @@ export default function Home({ route }) {
   
   const [searchText, setSearchText] = useState("");
 
+  const templateById = useMemo(
+    () => new Map((Array.isArray(templates) ? templates : []).map((t) => [t.id, t])),
+    [templates]
+  );
+  
+
   const filteredItems = useMemo(
-    () => filterBySearch(items, searchText, (item) => buildSearchHaystack(item?.name, item?.properties)),
+    () =>
+      filterBySearch(items, searchText, (item) =>
+        buildSearchHaystack(
+          item?.name,
+          (Array.isArray(item?.item_property_values) ? item.item_property_values : []).map((v) => v?.value)
+        )
+      ),
     [items, searchText]
   );
+  
 
 
   const [showCreateWarehouse, setShowCreateWarehouse] = useState(false);
@@ -98,8 +111,9 @@ export default function Home({ route }) {
   
     const tpl = templates.find((t) => t.id === it.template_id) ?? null;
     if (!tpl) return it;
-  
-    return { ...it, templates: { properties: tpl.properties } };
+    
+    return { ...it, templates: { template_properties: tpl.template_properties } };
+    
   }, [items, templates, selectedItemId]);
   
 
@@ -160,7 +174,10 @@ export default function Home({ route }) {
     
     setItems((prev) =>
       prev.map((it) =>
-        it.id === itemId ? (data ? { ...data, templates: it.templates } : { ...it, quantity: nextQuantity }) : it
+        it.id === itemId
+    ? (data ? { ...data, templates: it.templates, item_property_values: it.item_property_values } : { ...it, quantity: nextQuantity })
+    : it
+  
       )
     );  
 
@@ -181,11 +198,16 @@ export default function Home({ route }) {
       const data = await updateItemProperties({ itemId, nextProperties, signal });
       console.log("[Home][onUpdateItemInfo] success", { itemId, hasData: !!data });
   
-      setItems((prev) =>
-        prev.map((it) =>
-          it.id === itemId ? (data ? { ...data, templates: it.templates } : { ...it, properties: nextProperties }) : it
-        )
-      );
+      const nextValues = Array.isArray(data) && data.length
+      ? data.map((row) => ({ property_id: row.property_id, value: row.value }))
+      : Object.entries(nextProperties ?? {}).map(([property_id, value]) => ({ property_id, value }));
+    
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === itemId ? { ...it, item_property_values: nextValues } : it
+      )
+    );
+    
     } catch (e) {
       console.log("[Home][onUpdateItemInfo] error", e);
       throw e;
@@ -264,18 +286,32 @@ export default function Home({ route }) {
             ) : filteredItems.length === 0 ? (
               <Text style={HomeStyles.itemsEmptyText}>No inventory available.</Text>
             ) : (
-              filteredItems.map((item) => (
-                <ItemDisplayCard
-                  key={item.id}
-                  item={item}
-                  onPress={() => {
-                    setSelectedItemId(item.id);
-                    setShowItem(true);
-           
-                  }}
-                />
-              )
-            )
+              filteredItems.map((item) => {
+                const template = templateById.get(item.template_id);
+                const templateProps = Array.isArray(template?.template_properties) ? template.template_properties : [];
+                const firstPropId = templateProps[0]?.id ?? null;
+              
+                const valueMap = Array.isArray(item?.item_property_values)
+                  ? Object.fromEntries(item.item_property_values.map((v) => [v?.property_id, v?.value]))
+                  : {};
+              
+                const title = firstPropId ? valueMap?.[firstPropId] ?? "Item" : "Item";
+                const templateName = template?.name ?? item?.name ?? "Template";
+              
+                return (
+                  <ItemDisplayCard
+                    key={item.id}
+                    item={item}
+                    title={title}
+                    templateName={templateName}
+                    onPress={() => {
+                      setSelectedItemId(item.id);
+                      setShowItem(true);
+                    }}
+                  />
+                );
+              })
+              
               
             )}
                         {hasMoreItems && !itemsLoading && filteredItems.length > 0 && (

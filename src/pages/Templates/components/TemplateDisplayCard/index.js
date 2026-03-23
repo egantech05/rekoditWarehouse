@@ -10,8 +10,9 @@ export default function TemplateDisplayCard({ onPress, title = "Template", prope
             <Text style={TemplateDisplayCardStyles.title}>{title}</Text>
             {(() => {
                 const pills = (Array.isArray(properties) ? properties : [])
-                .map((p) => (typeof p === "string" ? p.trim() : String(p)))
+                .map((p) => (typeof p === "string" ? p.trim() : String(p?.name ?? "").trim()))
                 .filter(Boolean);
+
             
                 const mid = Math.ceil(pills.length / 2);
                 const row1 = pills.slice(0, mid);

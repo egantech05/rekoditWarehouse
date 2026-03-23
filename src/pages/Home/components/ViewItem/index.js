@@ -20,19 +20,26 @@ import {colors} from "../../../../assets/styles"
 
 
 
-const toDraftProperties = (properties) =>
-  properties && typeof properties === "object"
-    ? Object.fromEntries(Object.entries(properties).map(([k, v]) => [k, v == null ? "" : String(v)]))
+const toDraftProperties = (values = []) =>
+  Array.isArray(values)
+    ? Object.fromEntries(
+        values.map((v) => [v?.property_id, v?.value == null ? "" : String(v.value)])
+      )
     : {};
 
-const toPropertiesPayload = (draftProperties) => {
+const toPropertiesPayload = (draftProperties, templateProps) => {
   const nextProperties = {};
-  for (const [k, v] of Object.entries(draftProperties ?? {})) {
-    const trimmed = String(v ?? "").trim();
-    nextProperties[k] = trimmed ? trimmed : null;
+  const list = Array.isArray(templateProps) ? templateProps : [];
+  for (const prop of list) {
+    const propId = prop?.id;
+    if (!propId) continue;
+    const raw = draftProperties?.[propId];
+    const trimmed = String(raw ?? "").trim();
+    nextProperties[propId] = trimmed ? trimmed : null;
   }
   return nextProperties;
 };
+
 
 export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onRemoveItem, onUpdateItemInfo, canRemove = false, readOnly = false, headerActionLabel, onHeaderAction }) {
 
@@ -69,6 +76,10 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
         if (prev?.templates && !merged?.templates) {
           return { ...merged, templates: prev.templates };
         }
+        if (prev?.item_property_values && !merged?.item_property_values) {
+          return { ...merged, item_property_values: prev.item_property_values };
+        }
+        
         return merged;
       });
     }, [item]);
@@ -112,19 +123,30 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
       setShowHistoryDateFilter(false);
       setHistoryStartDate(null);
       setHistoryEndDate(null);
-      setDraftProperties(toDraftProperties(item?.properties));
+      setDraftProperties(toDraftProperties(item?.item_property_values));
+
     }, [visible, item?.id]);
   
 
 
 
     const activeItem = detailItem ?? item;
-    const firstPropertyValue =
-    activeItem?.properties && typeof activeItem.properties === "object"
-        ? Object.values(activeItem.properties).find((v) => v != null && String(v).trim() !== "")
-        : null;
-
-    const modalTitle = firstPropertyValue ?? activeItem?.name ?? "Inventory";
+    const templateProps = Array.isArray(activeItem?.templates?.template_properties)
+    ? activeItem.templates.template_properties
+    : [];
+  
+  const valueMap = Array.isArray(activeItem?.item_property_values)
+    ? Object.fromEntries(activeItem.item_property_values.map((v) => [v?.property_id, v?.value]))
+    : {};
+  
+  const firstPropId = templateProps[0]?.id ?? null;
+  const firstPropertyValue = firstPropId ? valueMap?.[firstPropId] : null;
+  
+  const modalTitle =
+    (firstPropertyValue != null && String(firstPropertyValue).trim() !== "" ? String(firstPropertyValue) : null) ??
+    activeItem?.name ??
+    "Inventory";
+  
 
     const footer =
     selectedTab === "history" ? (
@@ -196,7 +218,11 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
                   if (!activeItem?.id) return;
 
                 
-                  const nextProperties = toPropertiesPayload(draftProperties);
+                  const nextProperties = toPropertiesPayload(
+                    draftProperties,
+                    activeItem?.templates?.template_properties
+                  );
+                  
                   console.log("[ViewItem][edit] save start", {
                     itemId: activeItem.id,
                     keys: Object.keys(nextProperties ?? {}),
@@ -218,7 +244,16 @@ export default function ViewItem({ visible, onClose, item, onUpdateQuantity, onR
                     setDetailItem((prev) => {
                       if (!activeItem?.id) return prev;
                       const base = prev?.id === activeItem.id ? prev : activeItem;
-                      return base ? { ...base, properties: nextProperties } : prev;
+                      return base
+                      ? {
+                          ...base,
+                          item_property_values: Object.entries(nextProperties).map(([property_id, value]) => ({
+                            property_id,
+                            value,
+                          })),
+                        }
+                      : prev;
+                    
                     });
                     setDraftProperties(toDraftProperties(nextProperties));
                     setIsEditingInfo(false);
