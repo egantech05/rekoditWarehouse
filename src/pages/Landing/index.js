@@ -1,9 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, {useState } from "react";
 import {
   Alert,
   Dimensions,
   Image,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -13,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { supabase } from "../../lib/supabase";
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 
 const { width } = Dimensions.get("window");
@@ -213,21 +213,8 @@ export default function LandingPage({ navigation }) {
     type: "comment",
     message: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const mailtoUrl = useMemo(() => {
-    const subject = encodeURIComponent(`REKODIT feedback - ${form.type}`);
-    const body = encodeURIComponent(
-      [
-        `Email: ${form.email || "Not provided"}`,
-        `Rating: ${form.rating}/5`,
-        `Feedback type: ${form.type}`,
-        "",
-        "Message:",
-        form.message || "No additional details provided.",
-      ].join("\n")
-    );
-    return `mailto:eganxhart@gmail.com?subject=${subject}&body=${body}`;
-  }, [form]);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -252,19 +239,32 @@ export default function LandingPage({ navigation }) {
       Alert.alert("Missing email", "Please enter your email.");
       return;
     }
-
+  
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+  
     try {
-      const canOpen = await Linking.canOpenURL(mailtoUrl);
-      if (!canOpen) {
-        Alert.alert("Email unavailable", "No email app is available on this device.");
-        return;
-      }
-      await Linking.openURL(mailtoUrl);
+      const payload = {
+        email: form.email.trim(),
+        rating: form.rating,
+        type: form.type,
+        message: form.message.trim() || null,
+        source: "landing",
+      };
+  
+      const { error } = await supabase.from("feedback").insert(payload);
+      if (error) throw error;
+  
+      Alert.alert("Thanks!", "Your feedback was sent.");
       setShowFeedback(false);
-    } catch {
-      Alert.alert("Unable to send", "Something went wrong while opening the email app.");
+      setForm({ email: "", rating: 5, type: "comment", message: "" });
+    } catch (e) {
+      Alert.alert("Unable to send", e?.message ?? "Something went wrong.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
+  
 
   return (
     <View style={styles.screen}>
@@ -456,6 +456,7 @@ export default function LandingPage({ navigation }) {
               <Pressable onPress={openFeedback} style={styles.secondaryButton}>
                 <Text style={styles.secondaryButtonText}>Send Feedback</Text>
               </Pressable>
+              
             </View>
           </View>
 
@@ -548,9 +549,16 @@ export default function LandingPage({ navigation }) {
               <Pressable onPress={closeFeedback} style={styles.modalGhostButton}>
                 <Text style={styles.modalGhostButtonText}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={handleSubmitFeedback} style={styles.modalPrimaryButton}>
-                <Text style={styles.modalPrimaryButtonText}>Send Feedback</Text>
-              </Pressable>
+              <Pressable
+                onPress={handleSubmitFeedback}
+                disabled={isSubmitting}
+                style={styles.modalPrimaryButton}
+                >
+                <Text style={styles.modalPrimaryButtonText}>
+                {isSubmitting ? "Sending..." : "Send Feedback"}
+                </Text>
+            </Pressable>
+
             </View>
           </View>
         </View>
