@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 
 const { width } = Dimensions.get("window");
 const isWide = width >= 900;
@@ -36,26 +37,37 @@ const FEATURES = [
   {
     title: "Custom item templates",
     desc: "Create your own item properties so the system matches your workflow across stock, assets, tools, parts, or supplies.",
+    icon: "flask-outline",
   },
   {
     title: "Easy item setup",
     desc: "Add items quickly using your selected template without complicated setup or rigid fields.",
+    icon: "color-wand-outline",
   },
   {
     title: "QR code for every item",
     desc: "Each item gets its own QR code, ready to download as PNG and print for labels, shelves, bins, or equipment.",
+    icon: "qr-code-outline",
   },
   {
     title: "Track item logs",
     desc: "Keep a clear history of stock intake, usage, and quantity changes for each item.",
+    icon: "eye-outline",
   },
   {
     title: "Manage multiple inventories",
     desc: "Handle multiple inventory spaces or warehouse groups from one system.",
+    icon: "file-tray-stacked-outline",
   },
   {
     title: "No extra hardware required",
     desc: "Start with your existing devices. Generate, print, and scan QR codes using standard tools.",
+    icon: "build-outline",
+  },
+  {
+    title: "Team collaboration",
+    desc: "Assign teams and collaborate on items so inventory stays accurate and updated.",
+    icon: "people-outline",
   },
 ];
 
@@ -127,13 +139,15 @@ const DEMO_IMAGES = [
   },
 ];
 
-const HERO_IMAGE =
-  "https://images.unsplash.com/photo-1586528116493-2f09f29f7f2c?auto=format&fit=crop&w=1600&q=80";
+const HERO_IMAGE = require("../../assets/landing/mainHero.png");
 
-function FeatureCard({ title, desc }) {
+
+function FeatureCard({ title, desc, icon }) {
   return (
     <View style={styles.card}>
-      <View style={styles.cardIcon} />
+      <View style={styles.cardIcon}>
+        <Ionicons name={icon} size={22} color={COLORS.brand} />
+      </View>
       <Text style={styles.cardTitle}>{title}</Text>
       <Text style={styles.cardDesc}>{desc}</Text>
     </View>
@@ -266,11 +280,11 @@ export default function LandingPage({ navigation }) {
           <View style={styles.header}>
             <View style={styles.brandWrap}>
               <View style={styles.brandIcon}>
-                <Text style={styles.brandIconText}>▣</Text>
+                    <Ionicons name="film-outline" size={32} color={COLORS.surface} />        
               </View>
               <View>
                 <Text style={styles.brandTitle}>REKODIT</Text>
-                <Text style={styles.brandSub}>Flexible inventory, simplified</Text>
+                <Text style={styles.brandSub}>INVENTORY</Text>
               </View>
             </View>
 
@@ -313,22 +327,23 @@ export default function LandingPage({ navigation }) {
               <View style={styles.statsRow}>
                 <View style={styles.statCard}>
                   <Text style={styles.statValue}>Custom templates</Text>
-                  <Text style={styles.statLabel}>Setup model</Text>
+                  <Text style={styles.statLabel}>Flexible format</Text>
                 </View>
                 <View style={styles.statCard}>
-                  <Text style={styles.statValue}>QR per item</Text>
-                  <Text style={styles.statLabel}>Item access</Text>
+                  <Text style={styles.statValue}>Auto QR Generation</Text>
+                  <Text style={styles.statLabel}>Flexible access</Text>
                 </View>
                 <View style={styles.statCard}>
                   <Text style={styles.statValue}>No extra hardware</Text>
-                  <Text style={styles.statLabel}>Deployment</Text>
+                  <Text style={styles.statLabel}>Easy Deployment</Text>
                 </View>
               </View>
             </View>
 
             <View style={[styles.heroRight, isWide && styles.heroRightWide]}>
               <View style={styles.heroImageWrap}>
-                <Image source={{ uri: HERO_IMAGE }} style={styles.heroImage} resizeMode="cover" />
+              <Image source={HERO_IMAGE} style={styles.heroImage} resizeMode="cover" />
+
               </View>
             </View>
           </View>
@@ -348,6 +363,7 @@ export default function LandingPage({ navigation }) {
                   key={feature.title}
                   title={feature.title}
                   desc={feature.desc}
+                  icon={feature.icon}
                 />
               ))}
             </View>
@@ -372,7 +388,7 @@ export default function LandingPage({ navigation }) {
               ))}
             </View>
           </View>
-
+{/*
           <View style={styles.section}>
             <Text style={styles.sectionEyebrow}>Demo screens</Text>
             <Text style={styles.sectionTitle}>Real product views that support the workflow.</Text>
@@ -425,6 +441,8 @@ export default function LandingPage({ navigation }) {
             </View>
           </View>
 
+*/}
+
           <View style={styles.ctaPanel}>
             <Text style={styles.ctaTitle}>Start simple. Scale when ready.</Text>
             <Text style={styles.ctaDesc}>
@@ -443,7 +461,7 @@ export default function LandingPage({ navigation }) {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              REKODIT — simple inventory management with custom templates, QR access, and activity logs.
+              REKODIT by EGANTECH
             </Text>
             <Text style={styles.footerText}>Built for flexible business workflows.</Text>
           </View>
@@ -838,6 +856,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: COLORS.brandSoft,
     marginBottom: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cardTitle: {
     color: COLORS.text,
