@@ -25,7 +25,8 @@
     "web": {
       "favicon": "./src/assets/rekodit.png",
       "themeColor": "#292929",
-      "backgroundColor": "#292929"
+      "backgroundColor": "#292929",
+      "flex": 1
   
     }
   }
